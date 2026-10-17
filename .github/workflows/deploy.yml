@@ -5,13 +5,14 @@
 # DEPLOY_ENABLED with the value true.
 #
 # The login details for your host are stored as GitHub secrets (never in this file):
-#   FTP_SERVER    e.g. ftp.yourdomain.com
-#   FTP_USERNAME  your FTP user
-#   FTP_PASSWORD  your FTP password
-#   FTP_DIR       the folder on the host, ending with a slash, e.g. public_html/unit-tracker/
+#   SSH_HOST         e.g. yourdomain.com
+#   SSH_PORT         usually 22 (optional, 22 is used if it is missing)
+#   SSH_USER         your hosting account user name
+#   SSH_PRIVATE_KEY  the private key, starting with -----BEGIN
+#   DEPLOY_DIR       the folder on the host, ending with a slash, e.g. public_html/unit-tracker/
 #
-# config.php is never on GitHub, so it is never uploaded or overwritten:
-# the copy you made on the host stays as it is.
+# config.php is never on GitHub and is skipped below, so the copy you made on
+# the host stays as it is. Files are only added or updated, never deleted.
 
 name: Deploy to web host
 
@@ -34,18 +35,35 @@ jobs:
       - name: Get the code
         uses: actions/checkout@v4
 
+      - name: Set up the SSH key
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # Remember the host's fingerprint so SSH does not stop to ask about it.
+          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
+
       - name: Upload changed files to the host
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          server-dir: ${{ secrets.FTP_DIR }}
-          # ftps = FTP with encryption. Change to ftp only if your host does not support it.
-          protocol: ftps
-          exclude: |
-            **/.git*
-            **/.git*/**
-            .github/**
-            screenshots/**
-            README.md
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
+        run: |
+          rsync -rltvz \
+            --exclude 'config.php' \
+            --exclude 'mail.log' \
+            --exclude '.git*' \
+            --exclude '.github/' \
+            --exclude 'screenshots/' \
+            --exclude 'README.md' \
+            -e "ssh -i ~/.ssh/deploy_key -p $SSH_PORT" \
+            ./ "$SSH_USER@$SSH_HOST:$DEPLOY_DIR"
+
+      - name: Remove the key again
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

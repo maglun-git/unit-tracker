@@ -120,14 +120,24 @@ account from your host (the host's help pages list the server name and port).
 - Requires PHP 7.4 or newer (PHP 8 recommended) and MySQL 5.7+ or MariaDB.
 
 ## Automatic deploys from GitHub
-Every push to the `main` branch uploads the changed files to your web host
-(see `.github/workflows/deploy.yml`). It is switched off until you set it up:
+Every push to the `main` branch uploads the changed files to your web host over
+SSH (see `.github/workflows/deploy.yml`). It is switched off until you set it up:
 
-1. On your host, create an FTP account (or use your main one) that can write to
-   the tracker folder, and make sure `config.php` is already there (step 3 above).
-2. In the GitHub repository, open **Settings > Secrets and variables > Actions**.
-3. Under **Secrets**, add `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD` and
-   `FTP_DIR` (the folder, ending with `/`, e.g. `public_html/unit-tracker/`).
-4. Under **Variables**, add `DEPLOY_ENABLED` with the value `true`.
+1. On your host, make sure SSH access is turned on, and that `config.php` is
+   already in the tracker folder (step 3 above).
+2. In cPanel, open **SSH Access > Manage SSH Keys > Generate a New Key**. Leave
+   the passphrase empty, then click **Manage** next to the new public key and
+   **Authorize** it.
+3. Next to the new private key, click **View/Download** and copy the text that
+   starts with `-----BEGIN` (not the PPK version).
+4. In the GitHub repository, open **Settings > Secrets and variables > Actions**
+   and under **Secrets** add:
+   - `SSH_HOST`: your domain or the server name your host gives you
+   - `SSH_PORT`: only if your host does not use port 22
+   - `SSH_USER`: your hosting account user name
+   - `SSH_PRIVATE_KEY`: the private key text from step 3
+   - `DEPLOY_DIR`: the folder, ending with `/`, e.g. `public_html/unit-tracker/`
+5. Under **Variables**, add `DEPLOY_ENABLED` with the value `true`.
 
-`config.php` is never stored on GitHub, so a deploy never touches your settings.
+`config.php` is never stored on GitHub and the deploy skips it, so a deploy
+never touches your settings. Files are only added or updated, never deleted.
