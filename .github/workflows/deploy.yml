@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Get the code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up the SSH key
         env:
@@ -44,6 +44,14 @@ jobs:
           mkdir -p ~/.ssh
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          # Check the key before using it, with a clear message if it is wrong.
+          if ! ssh-keygen -y -P '' -f ~/.ssh/deploy_key > /dev/null 2>&1; then
+            echo "::error::SSH_PRIVATE_KEY cannot be used. Either it is not a complete private key (from -----BEGIN to -----END), or it has a passphrase. Create a new key without a passphrase."
+            exit 1
+          fi
+          # The fingerprint is not secret. Compare it with the key in cPanel.
+          echo "Key fingerprint:"
+          ssh-keygen -l -f ~/.ssh/deploy_key
           # Remember the host's fingerprint so SSH does not stop to ask about it.
           ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
 
@@ -61,7 +69,7 @@ jobs:
             --exclude '.github/' \
             --exclude 'screenshots/' \
             --exclude 'README.md' \
-            -e "ssh -i ~/.ssh/deploy_key -p $SSH_PORT" \
+            -e "ssh -i ~/.ssh/deploy_key -p $SSH_PORT -o BatchMode=yes -o IdentitiesOnly=yes" \
             ./ "$SSH_USER@$SSH_HOST:$DEPLOY_DIR"
 
       - name: Remove the key again
