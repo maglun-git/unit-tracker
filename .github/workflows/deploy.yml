@@ -39,8 +39,20 @@ jobs:
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+          SSH_USER: ${{ secrets.SSH_USER }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
+          # Catch the most common mistake: a space or line break pasted into a secret.
+          for name in SSH_HOST SSH_PORT SSH_USER; do
+            value="${!name}"
+            if [ -z "$value" ]; then
+              echo "::error::The secret $name is empty or missing."; exit 1
+            fi
+            if [[ "$value" =~ [[:space:]] ]]; then
+              echo "::error::The secret $name contains a space or line break. Re-enter it without spaces."; exit 1
+            fi
+            echo "$name is set (${#value} characters)."
+          done
           mkdir -p ~/.ssh
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
@@ -69,7 +81,7 @@ jobs:
             --exclude '.github/' \
             --exclude 'screenshots/' \
             --exclude 'README.md' \
-            -e "ssh -i ~/.ssh/deploy_key -p $SSH_PORT -o BatchMode=yes -o IdentitiesOnly=yes" \
+            -e "ssh -i ~/.ssh/deploy_key -p $SSH_PORT -o BatchMode=yes -o IdentitiesOnly=yes -v" \
             ./ "$SSH_USER@$SSH_HOST:$DEPLOY_DIR"
 
       - name: Remove the key again
