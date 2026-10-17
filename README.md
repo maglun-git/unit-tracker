@@ -121,25 +121,27 @@ account from your host (the host's help pages list the server name and port).
 
 ## Automatic deploys from GitHub
 Every push to the `main` branch uploads the changed files to your web host over
-SSH (see `.github/workflows/deploy.yml`). It is switched off until you set it up:
+SSH (see `.github/workflows/deploy.yml`). It only runs when the GitHub variable
+`DEPLOY_ENABLED` is `true` (Settings > Secrets and variables > Actions > Variables).
 
-1. On your host, make sure SSH access is turned on, and that `config.php` is
-   already in the tracker folder (step 3 above).
-2. Create an SSH key without a passphrase and add its public part to your
-   account (cPanel: **SSH Access > Manage SSH Keys**; DirectAdmin/Inleed: the
-   file `~/.ssh/authorized_keys`, see your host's SSH key guide). In cPanel, leave
-   the passphrase empty, then click **Manage** next to the new public key and
-   **Authorize** it.
-3. Next to the new private key, click **View/Download** and copy the text that
-   starts with `-----BEGIN` (not the PPK version).
-4. In the GitHub repository, open **Settings > Secrets and variables > Actions**
-   and under **Secrets** add:
-   - `SSH_HOST`: your domain or the server name your host gives you
-   - `SSH_PORT`: only if your host does not use port 22
-   - `SSH_USER`: your hosting account user name
-   - `SSH_PRIVATE_KEY`: the private key text from step 3
-   - `DEPLOY_DIR`: the folder, ending with `/`, e.g. `public_html/unit-tracker/`
-5. Under **Variables**, add `DEPLOY_ENABLED` with the value `true`.
+Setting it up (done once; example values are for Inleed):
 
-`config.php` is never stored on GitHub and the deploy skips it, so a deploy
-never touches your settings. Files are only added or updated, never deleted.
+1. Make sure `config.php` is already in the tracker folder on the host (step 3 above).
+2. On your own computer, create a key without a passphrase and give the public
+   half to the host:
+   ```
+   ssh-keygen -t ed25519 -f ~/.ssh/unittracker_deploy -N "" -C unittracker-deploy
+   ssh-copy-id -i ~/.ssh/unittracker_deploy.pub -p 2020 YOURUSER@nsX.inleed.net
+   ```
+3. In GitHub, open **Settings > Secrets and variables > Actions** and add these secrets:
+   - `SSH_HOST`: the server name, e.g. `ns15.inleed.net`
+   - `SSH_PORT`: `2020` on Inleed (leave it out if your host uses 22)
+   - `SSH_USER`: your DirectAdmin (or cPanel) user name
+   - `SSH_PRIVATE_KEY`: the private half (on a Mac: `pbcopy < ~/.ssh/unittracker_deploy`, then paste)
+   - `DEPLOY_DIR`: the folder, ending with `/`, e.g. `domains/yourdomain.se/public_html/unit-tracker/`
+4. Under **Variables**, add `DEPLOY_ENABLED` with the value `true`.
+
+To deploy by hand, open the **Actions** tab, pick **Deploy to web host** and click
+**Run workflow**. `config.php` is never stored on GitHub and the deploy skips it,
+so a deploy never touches your settings. Files are only added or updated, never
+deleted.

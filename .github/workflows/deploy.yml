@@ -81,7 +81,7 @@ jobs:
             --exclude '.github/' \
             --exclude 'screenshots/' \
             --exclude 'README.md' \
-            -e "ssh -i ~/.ssh/deploy_key -p $SSH_PORT -o BatchMode=yes -o IdentitiesOnly=yes -v" \
+            -e "ssh -i ~/.ssh/deploy_key -p $SSH_PORT -o BatchMode=yes -o IdentitiesOnly=yes" \
             ./ "$SSH_USER@$SSH_HOST:$DEPLOY_DIR"
 
       - name: Remove the key again
