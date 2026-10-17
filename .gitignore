@@ -1,0 +1,7 @@
+# Your real settings (database and email passwords). Never put this on GitHub.
+config.php
+# Test emails written when mail_method is 'log'.
+mail.log
+# Editor and system clutter.
+.DS_Store
+Thumbs.db

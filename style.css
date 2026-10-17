@@ -1,0 +1,50 @@
+/* Simple, clean styling for the tracker. */
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #1d2433; background: #f4f6f9; }
+.wrap { max-width: 1100px; margin: 0 auto; padding: 0 16px; }
+header { background: #1d2433; color: #fff; }
+header .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; }
+header a { color: #fff; text-decoration: none; }
+.brand { font-weight: 700; font-size: 17px; }
+nav a { margin-left: 16px; opacity: .85; }
+nav a:hover { opacity: 1; text-decoration: underline; }
+main { padding-bottom: 48px; }
+h1 { margin: 24px 0 16px; font-size: 24px; }
+h2 { font-size: 18px; margin: 24px 0 8px; }
+.card h2 { margin-top: 0; }
+a { color: #1a5fd0; }
+table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid #e7eaf0; vertical-align: top; }
+th { background: #eef1f6; font-size: 13px; color: #4a5468; }
+small, .muted { color: #6b7385; }
+tr.muted td { color: #9aa1b0; }
+.card { background: #fff; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+.narrow { max-width: 520px; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+label { display: block; margin-bottom: 12px; font-weight: 600; font-size: 14px; }
+label.check { font-weight: normal; }
+input, select, textarea { display: block; width: 100%; margin-top: 4px; padding: 8px 10px; font: inherit; border: 1px solid #c9cfda; border-radius: 6px; background: #fff; }
+label.check input { display: inline; width: auto; margin-right: 6px; }
+button, .button { display: inline-block; padding: 8px 16px; font: inherit; font-weight: 600; color: #fff; background: #1a5fd0; border: 0; border-radius: 6px; cursor: pointer; text-decoration: none; }
+button:hover, .button:hover { background: #154ea9; }
+button.secondary { background: #6b7385; }
+button.danger { background: #c0392b; }
+button.link { background: none; color: #c0392b; padding: 0; font-weight: normal; }
+form.inline { display: inline; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.badge.green { background: #dff3e4; color: #1e7b3a; }
+.badge.orange { background: #fdebd3; color: #a35a00; }
+.badge.red { background: #fadbd8; color: #b0281a; }
+.badge.grey { background: #e7eaf0; color: #4a5468; }
+.flash { padding: 10px 14px; border-radius: 6px; margin: 16px 0 0; background: #dff3e4; color: #1e7b3a; }
+.flash.err { background: #fadbd8; color: #b0281a; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.stat { background: #fff; border-radius: 8px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(0,0,0,.06); color: #4a5468; }
+.stat b { display: block; font-size: 28px; color: #1d2433; }
+.stat.red b { color: #b0281a; } .stat.orange b { color: #a35a00; } .stat.green b { color: #1e7b3a; }
+.tabs a { margin-right: 12px; text-decoration: none; padding-bottom: 2px; }
+.tabs a.active { font-weight: 700; border-bottom: 2px solid #1a5fd0; }
+@media (max-width: 700px) {
+  table { display: block; overflow-x: auto; }
+  nav a { margin: 0 12px 0 0; }
+}

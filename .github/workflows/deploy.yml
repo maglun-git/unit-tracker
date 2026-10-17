@@ -1,0 +1,51 @@
+# Uploads the tracker to your web host every time something is pushed to main.
+#
+# Nothing is uploaded until you turn it on: in GitHub, go to
+# Settings > Secrets and variables > Actions > Variables and add
+# DEPLOY_ENABLED with the value true.
+#
+# The login details for your host are stored as GitHub secrets (never in this file):
+#   FTP_SERVER    e.g. ftp.yourdomain.com
+#   FTP_USERNAME  your FTP user
+#   FTP_PASSWORD  your FTP password
+#   FTP_DIR       the folder on the host, ending with a slash, e.g. public_html/unit-tracker/
+#
+# config.php is never on GitHub, so it is never uploaded or overwritten:
+# the copy you made on the host stays as it is.
+
+name: Deploy to web host
+
+on:
+  push:
+    branches: [main]
+  # Also adds a "Run workflow" button on the Actions tab.
+  workflow_dispatch:
+
+# Never run two uploads at the same time.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v4
+
+      - name: Upload changed files to the host
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ secrets.FTP_DIR }}
+          # ftps = FTP with encryption. Change to ftp only if your host does not support it.
+          protocol: ftps
+          exclude: |
+            **/.git*
+            **/.git*/**
+            .github/**
+            screenshots/**
+            README.md

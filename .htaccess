@@ -1,0 +1,5 @@
+# Protect files that should never be opened in a browser.
+<FilesMatch "^(config\.php|config\.sample\.php|install\.sql|mail\.log|README\.md)$">
+  Require all denied
+</FilesMatch>
+Options -Indexes
