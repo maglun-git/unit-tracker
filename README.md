@@ -125,7 +125,9 @@ SSH (see `.github/workflows/deploy.yml`). It is switched off until you set it up
 
 1. On your host, make sure SSH access is turned on, and that `config.php` is
    already in the tracker folder (step 3 above).
-2. In cPanel, open **SSH Access > Manage SSH Keys > Generate a New Key**. Leave
+2. Create an SSH key without a passphrase and add its public part to your
+   account (cPanel: **SSH Access > Manage SSH Keys**; DirectAdmin/Inleed: the
+   file `~/.ssh/authorized_keys`, see your host's SSH key guide). In cPanel, leave
    the passphrase empty, then click **Manage** next to the new public key and
    **Authorize** it.
 3. Next to the new private key, click **View/Download** and copy the text that
