@@ -95,12 +95,14 @@ function require_login(): array
     if (empty($_SESSION['user_id'])) {
         redirect('login.php');
     }
-    $user = q('SELECT id, name, email FROM users WHERE id = ? AND approved = 1', [$_SESSION['user_id']])->fetch();
-    if (!$user) {
+    $user = q('SELECT * FROM users WHERE id = ?', [$_SESSION['user_id']])->fetch();
+    // Accounts waiting for approval cannot use the tracker. (The isset()
+    // keeps log-in working on a database that has not been upgraded yet.)
+    if (!$user || (isset($user['approved']) && !$user['approved'])) {
         session_destroy();
         redirect('login.php');
     }
-    return $user;
+    return ['id' => $user['id'], 'name' => $user['name'], 'email' => $user['email']];
 }
 
 // ---------- Small date helpers ----------

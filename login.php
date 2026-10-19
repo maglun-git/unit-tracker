@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     check_csrf();
     $user = q('SELECT * FROM users WHERE email = ?', [trim($_POST['email'] ?? '')])->fetch();
     if ($user && password_verify($_POST['password'] ?? '', $user['password_hash'])) {
-        if (!$user['approved']) {
+        if (isset($user['approved']) && !$user['approved']) {
             $error = 'Your account is waiting for approval by the team. You will get an email when it is approved.';
         } else {
             session_regenerate_id(true);
