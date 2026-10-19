@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash VARCHAR(255) NOT NULL,
   -- 1 = can log in, 0 = registered but waiting for approval.
   approved      TINYINT(1) NOT NULL DEFAULT 1,
+  -- 1 = can open the Admin page (add/remove users, send reminders).
+  is_admin      TINYINT(1) NOT NULL DEFAULT 0,
   created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

@@ -16,7 +16,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($pass) < 8) {
         $error = 'Fill in a name, a valid email and a password of at least 8 characters.';
     } else {
-        q('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)',
+        // The very first account is the admin.
+        q('INSERT INTO users (name, email, password_hash, is_admin) VALUES (?, ?, ?, 1)',
           [$name, $email, password_hash($pass, PASSWORD_DEFAULT)]);
         flash('Your account is ready. Log in below.');
         redirect('login.php');
