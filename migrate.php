@@ -51,4 +51,13 @@ if (!column_exists('users', 'is_admin')) {
     echo "Added users.is_admin ($n admin set)\n"; $done++;
 }
 
+// Nobody is admin yet? Make the first account (the one made in setup.php) admin.
+if (!q('SELECT 1 FROM users WHERE is_admin = 1')->fetch()) {
+    $first = q('SELECT id, name, email FROM users ORDER BY id LIMIT 1')->fetch();
+    if ($first) {
+        q('UPDATE users SET is_admin = 1 WHERE id = ?', [$first['id']]);
+        echo "Made the first account admin: {$first['name']} <{$first['email']}>\n"; $done++;
+    }
+}
+
 echo $done ? "Database upgraded ($done change" . ($done === 1 ? '' : 's') . ").\n" : "Database already up to date.\n";
