@@ -33,7 +33,8 @@ and POC cameras you lend to salespeople, and emails reminders automatically.
 |---|---|
 | `config.sample.php` | Settings template. You copy it to `config.php`. |
 | `install.sql` | Creates the database tables. Run once. |
-| `upgrade-2026-10-register.sql`, `upgrade-2026-10-admin.sql` | Only for databases made before October 2026: add what Register, Forgot password and Admin need. Run once each, in that order. |
+| `migrate.php` | Upgrades an existing database to match the code. The GitHub deploy runs it automatically; by hand: `php migrate.php`. |
+| `upgrade-2026-10-register.sql`, `upgrade-2026-10-admin.sql` | Only for databases made before October 2026: add what Register, Forgot password and Admin need. Same changes as `migrate.php`, if you prefer phpMyAdmin. |
 | `setup.php` | Creates the first login. Works only once. |
 | `login.php`, `logout.php` | Log in and out. |
 | `register.php` | Create an account (can log in straight away). |
