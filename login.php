@@ -12,12 +12,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     check_csrf();
     $user = q('SELECT * FROM users WHERE email = ?', [trim($_POST['email'] ?? '')])->fetch();
     if ($user && password_verify($_POST['password'] ?? '', $user['password_hash'])) {
-        session_regenerate_id(true);
-        $_SESSION['user_id'] = $user['id'];
-        redirect('index.php');
+        if (!$user['approved']) {
+            $error = 'Your account is waiting for approval by the team. You will get an email when it is approved.';
+        } else {
+            session_regenerate_id(true);
+            $_SESSION['user_id'] = $user['id'];
+            redirect('index.php');
+        }
+    } else {
+        sleep(1); // slows down password guessing
+        $error = 'Wrong email or password.';
     }
-    sleep(1); // slows down password guessing
-    $error = 'Wrong email or password.';
 }
 
 page_header('Log in');
@@ -29,4 +34,5 @@ if ($error) echo '<div class="flash err">' . h($error) . '</div>';
   <label>Password <input type="password" name="password" required></label>
   <button>Log in</button>
 </form>
+<p class="narrow"><a href="forgot.php">Forgot password?</a> · No account? <a href="register.php">Register here</a></p>
 <?php page_footer();

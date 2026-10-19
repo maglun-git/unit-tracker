@@ -29,6 +29,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             q('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($_POST['password'], PASSWORD_DEFAULT), $user['id']]);
             flash('Your password was changed.');
         }
+    } elseif ($action === 'approve') {
+        $new = q('SELECT name, email FROM users WHERE id = ? AND approved = 0', [(int)($_POST['id'] ?? 0)])->fetch();
+        if ($new) {
+            q('UPDATE users SET approved = 1 WHERE id = ? AND approved = 0', [(int)$_POST['id']]);
+            send_email($new['email'], 'Your account is approved',
+                "Hi {$new['name']},\n\nYour account on " . config('site_name') . " has been approved. You can log in here:\n"
+                . config('base_url') . "/login.php\n");
+            flash("{$new['name']} can now log in. They have been emailed.");
+        }
+    } elseif ($action === 'reject') {
+        q('DELETE FROM users WHERE id = ? AND approved = 0', [(int)($_POST['id'] ?? 0)]);
+        flash('The request was rejected and removed.');
     } elseif ($action === 'delete') {
         $target = (int)($_POST['id'] ?? 0);
         if ($target === (int)$user['id']) {
@@ -41,9 +53,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('users.php');
 }
 
-$users = q('SELECT id, name, email, created_at FROM users ORDER BY name')->fetchAll();
+$users = q('SELECT id, name, email, created_at FROM users WHERE approved = 1 ORDER BY name')->fetchAll();
+$pending = q('SELECT id, name, email, created_at FROM users WHERE approved = 0 ORDER BY created_at')->fetchAll();
 page_header('Team', $user);
 ?>
+<?php if ($pending): ?>
+<h2>Waiting for approval</h2>
+<table>
+  <tr><th>Name</th><th>Email</th><th>Registered</th><th></th></tr>
+  <?php foreach ($pending as $p): ?>
+  <tr>
+    <td><?= h($p['name']) ?></td><td><?= h($p['email']) ?></td><td><?= h(substr($p['created_at'], 0, 10)) ?></td>
+    <td>
+      <form method="post" class="inline">
+        <?= csrf_field() ?><input type="hidden" name="action" value="approve"><input type="hidden" name="id" value="<?= $p['id'] ?>">
+        <button>Approve</button>
+      </form>
+      <form method="post" onsubmit="return confirm('Reject and remove this request?')" class="inline">
+        <?= csrf_field() ?><input type="hidden" name="action" value="reject"><input type="hidden" name="id" value="<?= $p['id'] ?>">
+        <button class="link">Reject</button>
+      </form>
+    </td>
+  </tr>
+  <?php endforeach; ?>
+</table>
+<h2>Team members</h2>
+<?php endif; ?>
 <table>
   <tr><th>Name</th><th>Email</th><th>Since</th><th></th></tr>
   <?php foreach ($users as $u): ?>

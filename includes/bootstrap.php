@@ -95,7 +95,7 @@ function require_login(): array
     if (empty($_SESSION['user_id'])) {
         redirect('login.php');
     }
-    $user = q('SELECT id, name, email FROM users WHERE id = ?', [$_SESSION['user_id']])->fetch();
+    $user = q('SELECT id, name, email FROM users WHERE id = ? AND approved = 1', [$_SESSION['user_id']])->fetch();
     if (!$user) {
         session_destroy();
         redirect('login.php');
