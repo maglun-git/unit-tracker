@@ -13,6 +13,7 @@
 #
 # config.php is never on GitHub and is skipped below, so the copy you made on
 # the host stays as it is. Files are only added or updated, never deleted.
+# After the upload, migrate.php upgrades the database if the code needs it.
 
 name: Deploy to web host
 
@@ -83,6 +84,18 @@ jobs:
             --exclude 'README.md' \
             -e "ssh -i ~/.ssh/deploy_key -p $SSH_PORT -o BatchMode=yes -o IdentitiesOnly=yes" \
             ./ "$SSH_USER@$SSH_HOST:$DEPLOY_DIR"
+
+      - name: Upgrade the database
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
+        run: |
+          # Runs migrate.php on the host. It uses the database login in the host's
+          # config.php and only changes what is missing, so it is safe every time.
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
+            "$SSH_USER@$SSH_HOST" "cd '$DEPLOY_DIR' && php migrate.php"
 
       - name: Remove the key again
         if: always()

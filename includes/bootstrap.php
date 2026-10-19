@@ -102,7 +102,19 @@ function require_login(): array
         session_destroy();
         redirect('login.php');
     }
-    return ['id' => $user['id'], 'name' => $user['name'], 'email' => $user['email']];
+    return ['id' => $user['id'], 'name' => $user['name'], 'email' => $user['email'],
+            'is_admin' => !empty($user['is_admin'])];
+}
+
+// Call at the top of pages only admins may use.
+function require_admin(): array
+{
+    $user = require_login();
+    if (!$user['is_admin']) {
+        flash('Only admins can open that page.', 'err');
+        redirect('index.php');
+    }
+    return $user;
 }
 
 // ---------- Small date helpers ----------

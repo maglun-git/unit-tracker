@@ -1,7 +1,7 @@
 <?php
 // Sign-up page for people who don't have an account yet.
-// New accounts start as "waiting for approval": they cannot log in
-// until someone on the team approves them under Team.
+// The new account can be used straight away; the team address gets an
+// email so you know who signed up. Admins can remove accounts in admin.php.
 require __DIR__ . '/includes/bootstrap.php';
 
 // No accounts yet? The very first account is made in setup.php instead.
@@ -21,18 +21,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'The two passwords are not the same.';
     } else {
         try {
-            q('INSERT INTO users (name, email, password_hash, approved) VALUES (?, ?, ?, 0)',
+            q('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)',
               [$name, $email, password_hash($pass, PASSWORD_DEFAULT)]);
         } catch (PDOException $e) {
             $error = 'That email already has an account. Try "Forgot password" on the log-in page.';
         }
         if (!$error) {
-            // Tell the team someone is waiting for approval.
-            send_email(config('team_email'), 'New account waiting for approval: ' . $name,
-                "$name ($email) has asked for an account on " . config('site_name') . ".\n\n"
-                . "Approve or reject them here:\n" . config('base_url') . "/users.php\n");
-            flash('Thanks! Your account is waiting for approval. You will get an email when you can log in.');
-            redirect('login.php');
+            // Let the team know who signed up.
+            send_email(config('team_email'), 'New account: ' . $name,
+                "$name ($email) created an account on " . config('site_name') . ".\n\n"
+                . "Admins can see and remove accounts here:\n" . config('base_url') . "/admin.php\n");
+            // Log the new person in straight away.
+            session_regenerate_id(true);
+            $_SESSION['user_id'] = (int)db()->lastInsertId();
+            flash("Welcome, $name! Your account is ready.");
+            redirect('index.php');
         }
     }
     sleep(1); // slows down automated sign-ups
@@ -41,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 page_header('Register');
 if ($error) echo '<div class="flash err">' . h($error) . '</div>';
 ?>
-<p>Ask for an account. Someone on the team approves it before you can log in.</p>
+<p>Create an account to use the tracker.</p>
 <form method="post" class="card narrow">
   <?= csrf_field() ?>
   <label>Your name <input name="name" value="<?= h($_POST['name'] ?? '') ?>" required autofocus></label>

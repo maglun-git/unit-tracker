@@ -12,9 +12,12 @@ and POC cameras you lend to salespeople, and emails reminders automatically.
 - **Loans**: "send out a unit" to a salesperson with a due date. Change the due
   date to extend, and mark it as returned when it comes back.
 - **Overview**: how many units are out, overdue, due soon and in stock.
-- **Team**: the people on your team who can log in. New people can ask for an
-  account with **Register** on the log-in page; someone on the team approves
-  them under **Team** (the team address gets an email when someone registers).
+- **Team**: the people on your team who can log in. New people can create an
+  account with **Register** on the log-in page and use it straight away (the
+  team address gets an email when someone registers).
+- **Admin** (only for admins): add and remove users, set a new password for
+  someone, make others admin, send reminder emails right away, and see the
+  latest emails sent. The account made in `setup.php` is the first admin.
 - **Forgot password**: a link on the log-in page emails a one-time reset link
   that works for 1 hour.
 - **Automatic emails** (the salesperson gets the email, your team address gets a copy):
@@ -30,16 +33,18 @@ and POC cameras you lend to salespeople, and emails reminders automatically.
 |---|---|
 | `config.sample.php` | Settings template. You copy it to `config.php`. |
 | `install.sql` | Creates the database tables. Run once. |
-| `upgrade-2026-10-register.sql` | Only for databases made before October 2026: adds what Register and Forgot password need. Run once. |
+| `migrate.php` | Upgrades an existing database to match the code. The GitHub deploy runs it automatically; by hand: `php migrate.php`. |
+| `upgrade-2026-10-register.sql`, `upgrade-2026-10-admin.sql` | Only for databases made before October 2026: add what Register, Forgot password and Admin need. Same changes as `migrate.php`, if you prefer phpMyAdmin. |
 | `setup.php` | Creates the first login. Works only once. |
 | `login.php`, `logout.php` | Log in and out. |
-| `register.php` | Ask for an account (waits for approval under Team). |
+| `register.php` | Create an account (can log in straight away). |
+| `admin.php` | Admin portal: users, reminder emails, email log. Admins only. |
 | `forgot.php`, `reset.php` | "Forgot password" and choosing a new password from the emailed link. |
 | `index.php` | Overview page. |
 | `loans.php`, `loan_edit.php` | List loans; send out / extend / return a unit. |
 | `units.php` | List, add and edit units. |
 | `people.php` | List, add and edit salespeople. |
-| `users.php` | Team logins, approving new accounts, changing your password. |
+| `users.php` | List of team logins and changing your own password. |
 | `cron.php` | The reminder script your host runs once a day. |
 | `includes/` | Shared code: database connection, email sending, reminder rules, page layout. |
 | `style.css` | The look of the pages. |

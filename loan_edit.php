@@ -83,8 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif ($action === 'remind') {
         // Send the reminder that fits today, or a plain "due" reminder.
-        $type = reminder_type_for($loan) ?? 'before_' . max(1, days_until($loan['due_date']));
-        if (send_loan_email($loan, $type, true)) {
+        if (send_reminder_now($loan)) {
             flash('Reminder sent to ' . $loan['person_email'] . ' (copy to the team).');
         } else {
             flash('The email could not be sent. Check the email settings in config.php.', 'err');

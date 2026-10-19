@@ -99,6 +99,14 @@ function send_loan_email(array $loan, string $type, bool $force = false): bool
     return $ok;
 }
 
+// Sends a reminder right now, by hand (buttons on a loan and in Admin):
+// the reminder that fits today, or a plain "due in X days" reminder.
+function send_reminder_now(array $loan): bool
+{
+    $type = reminder_type_for($loan) ?? 'before_' . max(1, days_until($loan['due_date']));
+    return send_loan_email($loan, $type, true);
+}
+
 // Goes through all loans that are still out and sends what is due.
 // Returns a list of text lines describing what happened.
 function run_reminders(): array
