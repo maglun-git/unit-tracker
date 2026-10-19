@@ -12,7 +12,11 @@ and POC cameras you lend to salespeople, and emails reminders automatically.
 - **Loans**: "send out a unit" to a salesperson with a due date. Change the due
   date to extend, and mark it as returned when it comes back.
 - **Overview**: how many units are out, overdue, due soon and in stock.
-- **Team**: the people on your team who can log in.
+- **Team**: the people on your team who can log in. New people can ask for an
+  account with **Register** on the log-in page; someone on the team approves
+  them under **Team** (the team address gets an email when someone registers).
+- **Forgot password**: a link on the log-in page emails a one-time reset link
+  that works for 1 hour.
 - **Automatic emails** (the salesperson gets the email, your team address gets a copy):
   - a confirmation when a loan is registered (you can untick it per loan)
   - 7 days and 1 day before the due date
@@ -26,13 +30,16 @@ and POC cameras you lend to salespeople, and emails reminders automatically.
 |---|---|
 | `config.sample.php` | Settings template. You copy it to `config.php`. |
 | `install.sql` | Creates the database tables. Run once. |
+| `upgrade-2026-10-register.sql` | Only for databases made before October 2026: adds what Register and Forgot password need. Run once. |
 | `setup.php` | Creates the first login. Works only once. |
 | `login.php`, `logout.php` | Log in and out. |
+| `register.php` | Ask for an account (waits for approval under Team). |
+| `forgot.php`, `reset.php` | "Forgot password" and choosing a new password from the emailed link. |
 | `index.php` | Overview page. |
 | `loans.php`, `loan_edit.php` | List loans; send out / extend / return a unit. |
 | `units.php` | List, add and edit units. |
 | `people.php` | List, add and edit salespeople. |
-| `users.php` | Team logins and changing your password. |
+| `users.php` | Team logins, approving new accounts, changing your password. |
 | `cron.php` | The reminder script your host runs once a day. |
 | `includes/` | Shared code: database connection, email sending, reminder rules, page layout. |
 | `style.css` | The look of the pages. |
