@@ -33,12 +33,18 @@ return [
     'mail_from_name' => 'Unit Tracker',
 
     // --- How email is sent ---
-    // 'mail' = PHP's built-in mail() function. Works on most web hosts.
-    // 'smtp' = log in to a mail server (more reliable). Fill in smtp_* below.
-    'mail_method' => 'mail',
-    'smtp_host'   => 'smtp.example.com',
+    // 'smtp' = log in to a mailbox on your domain and send from it (recommended:
+    //          this is what keeps emails out of spam). Fill in smtp_* below.
+    // 'mail' = PHP's built-in mail() function. Easy, but often ends up in spam.
+    // 'log'  = don't send, write emails to mail.log (for testing).
+    // Use Admin > "Send test email" to check the settings.
+    'mail_method' => 'smtp',
+    // On Inleed / DirectAdmin: create the mailbox under E-mail Manager > E-mail Accounts.
+    // The server is usually mail.yourdomain.com (or your server name, e.g. ns15.inleed.net).
+    'smtp_host'   => 'mail.example.com',
     'smtp_port'   => 587,          // 587 with 'tls', or 465 with 'ssl'
     'smtp_secure' => 'tls',        // 'tls', 'ssl' or '' (none)
+    // Use the same address as mail_from above.
     'smtp_user'   => 'noreply@example.com',
     'smtp_pass'   => 'your_email_password',
 

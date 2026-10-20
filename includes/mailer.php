@@ -1,12 +1,32 @@
 <?php
 // ============================================================
-// Sending email.
-// send_email() picks PHP's mail() or SMTP based on config.php.
+// Sending email, using the PHPMailer library (includes/PHPMailer/).
+// send_email() sends through your mail server (SMTP) or PHP's
+// mail(), depending on 'mail_method' in config.php.
 // Returns true when the email was handed over successfully.
+// If it fails, mail_error() tells why.
 // ============================================================
 
-function send_email(string $to, string $subject, string $body, array $cc = []): bool
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception as MailException;
+
+require_once __DIR__ . '/PHPMailer/Exception.php';
+require_once __DIR__ . '/PHPMailer/PHPMailer.php';
+require_once __DIR__ . '/PHPMailer/SMTP.php';
+
+// The reason the last email failed ('' if it worked).
+function mail_error(?string $set = null): string
 {
+    static $error = '';
+    if ($set !== null) $error = $set;
+    return $error;
+}
+
+// $debug: pass an array to collect the conversation with the mail
+// server (used by the "Send test email" button in Admin).
+function send_email(string $to, string $subject, string $body, array $cc = [], ?array &$debug = null): bool
+{
+    mail_error('');
     $cc = array_values(array_filter($cc, fn($a) => $a && strcasecmp($a, $to) !== 0));
 
     // Testing aid: set 'mail_method' => 'log' to write emails to a file instead.
@@ -14,93 +34,55 @@ function send_email(string $to, string $subject, string $body, array $cc = []): 
         $line = "=== " . date('c') . "\nTo: $to\nCc: " . implode(', ', $cc) . "\nSubject: $subject\n\n$body\n\n";
         return file_put_contents(__DIR__ . '/../mail.log', $line, FILE_APPEND) !== false;
     }
-    if (config('mail_method') === 'smtp') {
-        return smtp_send($to, $cc, $subject, $body);
-    }
 
-    // PHP's built-in mail()
-    $from = config('mail_from');
-    $headers = [
-        'From: ' . encode_header(config('mail_from_name')) . " <$from>",
-        'Reply-To: ' . config('team_email'),
-        'MIME-Version: 1.0',
-        'Content-Type: text/plain; charset=UTF-8',
-        'Content-Transfer-Encoding: 8bit',
-    ];
-    if ($cc) {
-        $headers[] = 'Cc: ' . implode(', ', $cc);
-    }
-    return mail($to, encode_header($subject), $body, implode("\r\n", $headers), '-f' . $from);
-}
+    $mail = new PHPMailer(true); // true = report problems as errors we can catch
+    try {
+        if (config('mail_method') === 'smtp') {
+            // Log in to the mail server, like an email program does.
+            // This is what keeps emails out of spam: they really come from your mailbox.
+            $mail->isSMTP();
+            $mail->Host = config('smtp_host');
+            $mail->Port = (int)config('smtp_port', 587);
+            $secure = config('smtp_secure', 'tls');
+            $mail->SMTPSecure = $secure === 'ssl' ? PHPMailer::ENCRYPTION_SMTPS
+                              : ($secure === 'tls' ? PHPMailer::ENCRYPTION_STARTTLS : '');
+            $mail->SMTPAutoTLS = $secure !== '';
+            if (config('smtp_user')) {
+                $mail->SMTPAuth = true;
+                $mail->Username = config('smtp_user');
+                $mail->Password = config('smtp_pass');
+            }
+            $mail->Timeout = 20;
+            // Give up after 30 seconds if the server stops answering (default is 5 minutes).
+            $mail->getSMTPInstance()->Timelimit = 30;
+            if ($debug !== null) {
+                $mail->SMTPDebug = 2; // passwords are hidden by PHPMailer
+                $mail->Debugoutput = function ($line) use (&$debug) { $debug[] = trim($line); };
+            }
+        } else {
+            $mail->isMail(); // PHP's built-in mail()
+        }
 
-// Lets subjects and names contain characters like å, ä, ö.
-function encode_header(string $text): string
-{
-    return preg_match('/[^\x20-\x7E]/', $text) ? '=?UTF-8?B?' . base64_encode($text) . '?=' : $text;
-}
-
-// A small SMTP client: talks to the mail server step by step.
-function smtp_send(string $to, array $cc, string $subject, string $body): bool
-{
-    $host = config('smtp_host');
-    $port = (int)config('smtp_port', 587);
-    $secure = config('smtp_secure', 'tls');
-    $remote = ($secure === 'ssl' ? 'ssl://' : '') . $host . ':' . $port;
-
-    $sock = @stream_socket_client($remote, $errno, $errstr, 20);
-    if (!$sock) {
-        error_log("SMTP connect failed: $errstr");
+        $mail->CharSet = PHPMailer::CHARSET_UTF8;
+        // "From" and the bounce address (Return-Path) are both your own address.
+        // Mail servers check that these match your domain's SPF/DKIM records.
+        $mail->setFrom(config('mail_from'), (string)config('mail_from_name'));
+        $mail->Sender = config('mail_from');
+        if (config('team_email')) {
+            $mail->addReplyTo(config('team_email'));
+        }
+        $mail->addAddress($to);
+        foreach ($cc as $address) {
+            $mail->addCC($address);
+        }
+        $mail->XMailer = ' '; // don't advertise the software; some filters dislike it
+        $mail->Subject = $subject;
+        $mail->Body = $body; // plain text: simple emails score well with spam filters
+        $mail->send();
+        return true;
+    } catch (MailException $e) {
+        mail_error($mail->ErrorInfo ?: $e->getMessage());
+        error_log('Email to ' . $to . ' failed: ' . mail_error());
         return false;
     }
-    stream_set_timeout($sock, 20);
-
-    // Send one command and check the server's answer code.
-    $cmd = function (?string $line, string $expect) use ($sock): bool {
-        if ($line !== null) {
-            fwrite($sock, $line . "\r\n");
-        }
-        $reply = '';
-        while (($l = fgets($sock, 515)) !== false) {
-            $reply .= $l;
-            if (strlen($l) < 4 || $l[3] === ' ') break; // last line of the reply
-        }
-        if (strpos($reply, $expect) !== 0) {
-            error_log("SMTP error after '" . ($line ?? 'connect') . "': $reply");
-            return false;
-        }
-        return true;
-    };
-
-    $me = gethostname() ?: 'localhost';
-    $ok = $cmd(null, '220') && $cmd("EHLO $me", '250');
-    if ($ok && $secure === 'tls') {
-        $ok = $cmd('STARTTLS', '220')
-            && stream_socket_enable_crypto($sock, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)
-            && $cmd("EHLO $me", '250');
-    }
-    if ($ok && config('smtp_user')) {
-        $ok = $cmd('AUTH LOGIN', '334')
-            && $cmd(base64_encode(config('smtp_user')), '334')
-            && $cmd(base64_encode(config('smtp_pass')), '235');
-    }
-    $from = config('mail_from');
-    $ok = $ok && $cmd("MAIL FROM:<$from>", '250');
-    foreach (array_merge([$to], $cc) as $rcpt) {
-        $ok = $ok && $cmd("RCPT TO:<$rcpt>", '25');
-    }
-    if ($ok) {
-        $headers = 'Date: ' . date('r') . "\r\n"
-            . 'From: ' . encode_header(config('mail_from_name')) . " <$from>\r\n"
-            . "To: <$to>\r\n"
-            . ($cc ? 'Cc: ' . implode(', ', $cc) . "\r\n" : '')
-            . 'Reply-To: ' . config('team_email') . "\r\n"
-            . 'Subject: ' . encode_header($subject) . "\r\n"
-            . "MIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n";
-        // Lines starting with "." must be doubled in SMTP.
-        $data = preg_replace('/^\./m', '..', str_replace(["\r\n", "\n"], ["\n", "\r\n"], $body));
-        $ok = $cmd('DATA', '354') && $cmd($headers . "\r\n" . $data . "\r\n.", '250');
-    }
-    $cmd('QUIT', '221');
-    fclose($sock);
-    return $ok;
 }

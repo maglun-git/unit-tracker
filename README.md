@@ -109,16 +109,28 @@ https://your-domain/unit-tracker/cron.php?key=YOUR_CRON_KEY
 Running it more than once a day is harmless: each reminder is only sent once.
 
 ### 7. Test the emails
+Emails are sent with [PHPMailer](https://github.com/PHPMailer/PHPMailer) (in
+`includes/PHPMailer/`). To keep them out of spam:
+
+1. In DirectAdmin, open **E-mail Manager > E-mail Accounts** and create a
+   mailbox on your domain, e.g. `noreply@yourdomain.se`.
+2. In `config.php` on the host set `mail_from` and `smtp_user` to that address,
+   `smtp_pass` to its password, `'mail_method' => 'smtp'`, and `smtp_host` to
+   your mail server (DirectAdmin shows it as the outgoing/SMTP server).
+3. In DirectAdmin, make sure **DKIM** is turned on for the domain
+   (E-mail Manager > DKIM, or ask Inleed support). SPF is normally set already.
+4. Log in, open **Admin** and click **Send test email**. If it fails, the page
+   shows the reason and the conversation with the mail server.
+
+Then:
 1. Add yourself as a salesperson, add a test unit and send it out to yourself
    with the confirmation box ticked. You should get the email within a minute.
 2. Open the loan and click **Send reminder now** to test a reminder.
 3. To test the cron job, run it once by hand (option B: open the web address in
    your browser). It prints what it sent.
 
-If no email arrives, check your spam folder, then make sure `mail_from` is an
-address on your own domain. If it still fails, switch to SMTP: in `config.php`
-set `'mail_method' => 'smtp'` and fill in the `smtp_*` settings with an email
-account from your host (the host's help pages list the server name and port).
+If no email arrives, use **Admin > Send test email**: it lists settings that
+often cause problems and shows the mail server's answer.
 
 ## Good to know
 - **Extending a loan**: open the loan, change **Due back** and save. The

@@ -4,11 +4,13 @@
 //  - Reminders: run today's reminders, or email holders right now
 //  - Users: add, remove, reset password, make admin
 //  - The latest emails the tracker has sent
+//  - Email settings check and "Send test email"
 // ============================================================
 require __DIR__ . '/includes/bootstrap.php';
 $user = require_admin();
 
 $report = null; // lines to show after "Run today's reminders"
+$test = null;   // result of "Send test email"
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     check_csrf();
@@ -38,6 +40,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         flash("Sent $sent reminder" . ($sent === 1 ? '' : 's') . ($failed ? ", $failed failed" : '') . '.', $failed ? 'err' : 'ok');
         redirect('admin.php');
+
+    // ---------- Email test ----------
+    } elseif ($action === 'test_email') {
+        $to = trim($_POST['to'] ?? '');
+        $debug = [];
+        $ok = filter_var($to, FILTER_VALIDATE_EMAIL) && send_email($to, 'Test email from ' . config('site_name'),
+            "Hi,\n\nThis is a test email from " . config('site_name') . ".\nIf you can read this, email sending works.\n\n"
+            . "Sent " . date('Y-m-d H:i') . "\n", [], $debug);
+        $test = ['ok' => $ok, 'to' => $to, 'error' => $ok ? '' : (mail_error() ?: 'Not a valid email address.'), 'debug' => $debug];
 
     // ---------- Users ----------
     } elseif ($action === 'add_user') {
@@ -107,6 +118,28 @@ $log = q('SELECT r.sent_at, r.reminder_type, r.sent_to, r.loan_id, u.model
           FROM reminder_log r JOIN loans l ON l.id = r.loan_id JOIN units u ON u.id = l.unit_id
           ORDER BY r.sent_at DESC LIMIT 20')->fetchAll();
 
+// Things in config.php that often send email to spam or stop it completely.
+$mailWarnings = [];
+$fromDomain = strtolower(substr(strrchr((string)config('mail_from'), '@') ?: '', 1));
+$siteDomain = strtolower(preg_replace('/^www\./', '', (string)parse_url((string)config('base_url'), PHP_URL_HOST)));
+if (config('mail_method') === 'log') {
+    $mailWarnings[] = "mail_method is 'log': emails are written to mail.log and never sent.";
+}
+if (config('mail_method') !== 'smtp') {
+    $mailWarnings[] = "mail_method is not 'smtp'. Sending through your mailbox with SMTP is the most reliable way to stay out of spam.";
+}
+foreach (['mail_from', 'team_email', 'smtp_host', 'smtp_user'] as $k) {
+    if (stripos((string)config($k), 'example.com') !== false) {
+        $mailWarnings[] = "$k is still the example value (" . config($k) . ').';
+    }
+}
+if ($fromDomain && $siteDomain && $fromDomain !== $siteDomain && substr($siteDomain, -strlen('.' . $fromDomain)) !== '.' . $fromDomain) {
+    $mailWarnings[] = "mail_from ($fromDomain) is not on the tracker's domain ($siteDomain). That is fine only if you send through that domain's own mail server.";
+}
+if (config('mail_method') === 'smtp' && config('smtp_user') && strcasecmp((string)config('smtp_user'), (string)config('mail_from')) !== 0) {
+    $mailWarnings[] = 'smtp_user and mail_from differ. Many mail servers only allow sending "From" the mailbox you log in with.';
+}
+
 page_header('Admin', $user);
 ?>
 <h2>Reminder emails</h2>
@@ -150,6 +183,39 @@ page_header('Admin', $user);
 <?php else: ?>
 <p class="muted">No units are out right now.</p>
 <?php endif; ?>
+
+<h2>Email settings</h2>
+<?php if ($test): ?>
+  <?php if ($test['ok']): ?>
+  <div class="flash ok">Test email sent to <?= h($test['to']) ?>. Check the inbox (and the spam folder).</div>
+  <?php else: ?>
+  <div class="flash err">The test email could not be sent: <?= h($test['error']) ?></div>
+  <?php if ($test['debug']): ?>
+  <details class="card"><summary>Conversation with the mail server</summary><pre style="white-space:pre-wrap;font-size:12px"><?= h(implode("\n", $test['debug'])) ?></pre></details>
+  <?php endif; ?>
+  <?php endif; ?>
+<?php endif; ?>
+<div class="cols">
+  <div class="card">
+    <p><small class="muted">These come from config.php on the web host. The password is never shown.</small></p>
+    <table>
+      <tr><td>Method</td><td><b><?= h(config('mail_method')) ?></b></td></tr>
+      <tr><td>From</td><td><?= h(config('mail_from_name')) ?> &lt;<?= h(config('mail_from')) ?>&gt;</td></tr>
+      <tr><td>Team copy / Reply-To</td><td><?= h(config('team_email')) ?></td></tr>
+      <?php if (config('mail_method') === 'smtp'): ?>
+      <tr><td>SMTP server</td><td><?= h(config('smtp_host')) ?> port <?= h(config('smtp_port')) ?> (<?= h(config('smtp_secure') ?: 'no encryption') ?>)</td></tr>
+      <tr><td>SMTP login</td><td><?= h(config('smtp_user')) ?></td></tr>
+      <?php endif; ?>
+    </table>
+    <?php foreach ($mailWarnings as $w): ?><div class="flash err"><?= h($w) ?></div><?php endforeach; ?>
+  </div>
+  <form method="post" class="card">
+    <h2>Send test email</h2>
+    <?= csrf_field() ?><input type="hidden" name="action" value="test_email">
+    <label>To <input type="email" name="to" value="<?= h($test['to'] ?? $user['email']) ?>" required></label>
+    <button>Send test email</button>
+  </form>
+</div>
 
 <h2>Users</h2>
 <table>
