@@ -140,6 +140,27 @@ if (config('mail_method') === 'smtp' && config('smtp_user') && strcasecmp((strin
     $mailWarnings[] = 'smtp_user and mail_from differ. Many mail servers only allow sending "From" the mailbox you log in with.';
 }
 
+// Spam-protection records for the From domain, looked up from the web host.
+// SPF and DKIM let other mail servers check that our emails are genuine.
+$dnsChecks = [];
+if ($fromDomain && function_exists('dns_get_record')) {
+    $txt = function (string $name): array {
+        $records = @dns_get_record($name, DNS_TXT) ?: [];
+        return array_map(fn($r) => $r['txt'] ?? implode('', $r['entries'] ?? []), $records);
+    };
+    $spf = array_values(array_filter($txt($fromDomain), fn($t) => stripos($t, 'v=spf1') === 0));
+    $dmarc = array_values(array_filter($txt('_dmarc.' . $fromDomain), fn($t) => stripos($t, 'v=DMARC1') === 0));
+    // DirectAdmin uses the DKIM selector "x".
+    $dkim = array_values(array_filter($txt('x._domainkey.' . $fromDomain), fn($t) => stripos($t, 'p=') !== false));
+    $mx = @dns_get_record($fromDomain, DNS_MX) ?: [];
+    $dnsChecks = [
+        'MX (receives mail)' => $mx ? implode(', ', array_column($mx, 'target')) : null,
+        'SPF'                => $spf[0] ?? null,
+        'DKIM'               => $dkim ? 'found (selector x)' : null,
+        'DMARC'              => $dmarc[0] ?? null,
+    ];
+}
+
 page_header('Admin', $user);
 ?>
 <h2>Reminder emails</h2>
@@ -207,6 +228,16 @@ page_header('Admin', $user);
       <tr><td>SMTP login</td><td><?= h(config('smtp_user')) ?></td></tr>
       <?php endif; ?>
     </table>
+    <?php if ($dnsChecks): ?>
+    <p style="margin-top:12px"><b>Spam protection for <?= h($fromDomain) ?></b></p>
+    <table>
+      <?php foreach ($dnsChecks as $name => $value): ?>
+      <tr><td><?= h($name) ?></td><td><?= $value !== null
+          ? '<span class="badge green">OK</span> <small>' . h($value) . '</small>'
+          : '<span class="badge ' . ($name === 'DMARC' ? 'orange">Missing (recommended)' : 'red">Missing') . '</span>' ?></td></tr>
+      <?php endforeach; ?>
+    </table>
+    <?php endif; ?>
     <?php foreach ($mailWarnings as $w): ?><div class="flash err"><?= h($w) ?></div><?php endforeach; ?>
   </div>
   <form method="post" class="card">
