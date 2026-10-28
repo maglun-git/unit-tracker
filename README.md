@@ -132,6 +132,33 @@ Then:
 If no email arrives, use **Admin > Send test email**: it lists settings that
 often cause problems and shows the mail server's answer.
 
+### Microsoft 365 / Office 365 mailbox (OAuth2)
+Office 365 mailboxes usually don't allow a plain password log-in, so the tracker
+can send through Microsoft Graph instead (`'mail_method' => 'graph'`). It needs
+an "app registration" that your IT department makes once:
+
+1. **Microsoft Entra admin center > App registrations > New registration**,
+   e.g. "Unit Tracker mail" (single tenant, no redirect URI). Note the
+   **Directory (tenant) ID** and **Application (client) ID**.
+2. **Certificates & secrets > New client secret**. Copy the secret's **Value**.
+3. **API permissions > Add > Microsoft Graph > Application permissions >
+   Mail.Send**, then **Grant admin consent**.
+4. Limit the app to the one mailbox (otherwise it may send as anyone), with
+   Exchange Online RBAC for Applications or an Application Access Policy, e.g.
+   `New-ApplicationAccessPolicy -AppId <client id> -PolicyScopeGroupId <mailbox> -AccessRight RestrictAccess -Description "Unit Tracker"`.
+
+Then in `config.php` on the host:
+```php
+'mail_method'         => 'graph',
+'mail_from'           => 'the mailbox address',
+'graph_tenant_id'     => '...',
+'graph_client_id'     => '...',
+'graph_client_secret' => '...',
+'graph_user'          => 'the mailbox log-in name, if different from mail_from',
+```
+and click **Admin > Send test email**. The secret expires (often after 1 or 2
+years): when emails stop, ask IT for a new one and update `config.php`.
+
 ## Good to know
 - **Extending a loan**: open the loan, change **Due back** and save. The
   reminders start over for the new date.

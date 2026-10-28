@@ -1,8 +1,8 @@
 <?php
 // ============================================================
 // Sending email, using the PHPMailer library (includes/PHPMailer/).
-// send_email() sends through your mail server (SMTP) or PHP's
-// mail(), depending on 'mail_method' in config.php.
+// send_email() sends through your mail server (SMTP), Microsoft 365
+// (Graph), or PHP's mail(), depending on 'mail_method' in config.php.
 // Returns true when the email was handed over successfully.
 // If it fails, mail_error() tells why.
 // ============================================================
@@ -33,6 +33,10 @@ function send_email(string $to, string $subject, string $body, array $cc = [], ?
     if (config('mail_method') === 'log') {
         $line = "=== " . date('c') . "\nTo: $to\nCc: " . implode(', ', $cc) . "\nSubject: $subject\n\n$body\n\n";
         return file_put_contents(__DIR__ . '/../mail.log', $line, FILE_APPEND) !== false;
+    }
+
+    if (config('mail_method') === 'graph') {
+        return graph_send($to, $subject, $body, $cc, $debug);
     }
 
     $mail = new PHPMailer(true); // true = report problems as errors we can catch
@@ -85,4 +89,100 @@ function send_email(string $to, string $subject, string $body, array $cc = [], ?
         error_log('Email to ' . $to . ' failed: ' . mail_error());
         return false;
     }
+}
+
+// ============================================================
+// Microsoft 365 (Graph API)
+// For mailboxes that only allow OAuth2 log-in (like Office 365).
+// The tracker signs in as an "app" registered in Microsoft Entra
+// (tenant id, client id and client secret in config.php), gets a
+// short-lived access token, and asks Microsoft to send the email
+// from the mailbox. Everything goes over normal HTTPS (port 443).
+// ============================================================
+
+// Sends a POST request and returns [HTTP status, response body].
+function http_post(string $url, array $headers, string $body): array
+{
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body, CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 30,
+        ]);
+        $response = curl_exec($ch);
+        $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+        return [$status, $response === false ? "Connection failed: $error" : (string)$response];
+    }
+    $context = stream_context_create(['http' => [
+        'method' => 'POST', 'header' => implode("\r\n", $headers), 'content' => $body,
+        'timeout' => 30, 'ignore_errors' => true,
+    ]]);
+    $response = @file_get_contents($url, false, $context);
+    $status = isset($http_response_header[0]) && preg_match('/\s(\d{3})\s/', $http_response_header[0], $m) ? (int)$m[1] : 0;
+    return [$status, $response === false ? 'Connection failed' : $response];
+}
+
+// Microsoft's error text from a JSON answer, or the raw answer.
+function graph_error_text(string $response): string
+{
+    $json = json_decode($response, true);
+    return $json['error']['message'] ?? $json['error_description'] ?? $json['error'] ?? mb_substr($response, 0, 300);
+}
+
+// Gets an access token (valid about an hour; reused within one page load).
+function graph_token(?array &$debug = null): ?string
+{
+    static $token = null, $expires = 0;
+    if ($token && time() < $expires - 60) return $token;
+
+    $url = config('graph_token_url', 'https://login.microsoftonline.com/' . rawurlencode((string)config('graph_tenant_id')) . '/oauth2/v2.0/token');
+    [$status, $response] = http_post($url, ['Content-Type: application/x-www-form-urlencoded'], http_build_query([
+        'grant_type'    => 'client_credentials',
+        'client_id'     => config('graph_client_id'),
+        'client_secret' => config('graph_client_secret'),
+        'scope'         => 'https://graph.microsoft.com/.default',
+    ]));
+    if ($debug !== null) $debug[] = "Sign in to Microsoft: HTTP $status";
+    $json = json_decode($response, true);
+    if ($status !== 200 || empty($json['access_token'])) {
+        mail_error('Microsoft sign-in failed: ' . graph_error_text($response));
+        return null;
+    }
+    $token = $json['access_token'];
+    $expires = time() + (int)($json['expires_in'] ?? 3600);
+    return $token;
+}
+
+function graph_send(string $to, string $subject, string $body, array $cc, ?array &$debug = null): bool
+{
+    $token = graph_token($debug);
+    if (!$token) {
+        error_log('Email to ' . $to . ' failed: ' . mail_error());
+        return false;
+    }
+    $address = fn($a) => ['emailAddress' => ['address' => $a]];
+    $message = [
+        'subject'      => $subject,
+        'body'         => ['contentType' => 'Text', 'content' => $body],
+        'toRecipients' => [$address($to)],
+        'ccRecipients' => array_map($address, $cc),
+        'from'         => ['emailAddress' => ['address' => config('mail_from'), 'name' => (string)config('mail_from_name')]],
+    ];
+    if (config('team_email')) {
+        $message['replyTo'] = [$address(config('team_email'))];
+    }
+    // The mailbox to send from: its log-in name (graph_user) or the From address.
+    $mailbox = config('graph_user') ?: config('mail_from');
+    $url = rtrim(config('graph_api_url', 'https://graph.microsoft.com/v1.0'), '/') . '/users/' . rawurlencode($mailbox) . '/sendMail';
+    [$status, $response] = http_post($url, ['Authorization: Bearer ' . $token, 'Content-Type: application/json'],
+        json_encode(['message' => $message, 'saveToSentItems' => true]));
+    if ($debug !== null) $debug[] = "Send as $mailbox: HTTP $status" . ($status === 202 ? ' (accepted)' : '');
+    if ($status !== 202) {
+        mail_error("Microsoft did not send the email (HTTP $status): " . graph_error_text($response));
+        error_log('Email to ' . $to . ' failed: ' . mail_error());
+        return false;
+    }
+    return true;
 }
