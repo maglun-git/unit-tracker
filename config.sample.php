@@ -35,6 +35,8 @@ return [
     // --- How email is sent ---
     // 'smtp' = log in to a mailbox on your domain and send from it (recommended:
     //          this is what keeps emails out of spam). Fill in smtp_* below.
+    // 'graph' = send from a Microsoft 365 / Office 365 mailbox that uses OAuth2
+    //          log-in. Fill in graph_* below (see README, "Microsoft 365").
     // 'mail' = PHP's built-in mail() function. Easy, but often ends up in spam.
     // 'log'  = don't send, write emails to mail.log (for testing).
     // Use Admin > "Send test email" to check the settings.
@@ -47,6 +49,14 @@ return [
     // Use the same address as mail_from above.
     'smtp_user'   => 'noreply@example.com',
     'smtp_pass'   => 'your_email_password',
+
+    // --- Microsoft 365 (only for 'mail_method' => 'graph') ---
+    // From the app registration your IT department makes in Microsoft Entra.
+    'graph_tenant_id'     => '',
+    'graph_client_id'     => '',
+    'graph_client_secret' => '',
+    // The mailbox's log-in name, if it differs from mail_from (optional).
+    'graph_user'          => '',
 
     // --- Reminder rules ---
     // Send an email to the holder when a loan is registered.

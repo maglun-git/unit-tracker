@@ -125,15 +125,20 @@ $siteDomain = strtolower(preg_replace('/^www\./', '', (string)parse_url((string)
 if (config('mail_method') === 'log') {
     $mailWarnings[] = "mail_method is 'log': emails are written to mail.log and never sent.";
 }
-if (config('mail_method') !== 'smtp') {
-    $mailWarnings[] = "mail_method is not 'smtp'. Sending through your mailbox with SMTP is the most reliable way to stay out of spam.";
+if (!in_array(config('mail_method'), ['smtp', 'graph'], true)) {
+    $mailWarnings[] = "mail_method is not 'smtp' or 'graph'. Sending through a real mailbox is the most reliable way to stay out of spam.";
+}
+if (config('mail_method') === 'graph') {
+    foreach (['graph_tenant_id', 'graph_client_id', 'graph_client_secret'] as $k) {
+        if (!config($k)) $mailWarnings[] = "$k is empty in config.php.";
+    }
 }
 foreach (['mail_from', 'team_email', 'smtp_host', 'smtp_user'] as $k) {
     if (stripos((string)config($k), 'example.com') !== false) {
         $mailWarnings[] = "$k is still the example value (" . config($k) . ').';
     }
 }
-if ($fromDomain && $siteDomain && $fromDomain !== $siteDomain && substr($siteDomain, -strlen('.' . $fromDomain)) !== '.' . $fromDomain) {
+if (config('mail_method') !== 'graph' && $fromDomain && $siteDomain && $fromDomain !== $siteDomain && substr($siteDomain, -strlen('.' . $fromDomain)) !== '.' . $fromDomain) {
     $mailWarnings[] = "mail_from ($fromDomain) is not on the tracker's domain ($siteDomain). That is fine only if you send through that domain's own mail server.";
 }
 if (config('mail_method') === 'smtp' && config('smtp_user') && strcasecmp((string)config('smtp_user'), (string)config('mail_from')) !== 0) {
@@ -212,7 +217,7 @@ page_header('Admin', $user);
   <?php else: ?>
   <div class="flash err">The test email could not be sent: <?= h($test['error']) ?></div>
   <?php if ($test['debug']): ?>
-  <details class="card"><summary>Conversation with the mail server</summary><pre style="white-space:pre-wrap;font-size:12px"><?= h(implode("\n", $test['debug'])) ?></pre></details>
+  <details class="card"><summary>Details from the mail server</summary><pre style="white-space:pre-wrap;font-size:12px"><?= h(implode("\n", $test['debug'])) ?></pre></details>
   <?php endif; ?>
   <?php endif; ?>
 <?php endif; ?>
@@ -223,6 +228,11 @@ page_header('Admin', $user);
       <tr><td>Method</td><td><b><?= h(config('mail_method')) ?></b></td></tr>
       <tr><td>From</td><td><?= h(config('mail_from_name')) ?> &lt;<?= h(config('mail_from')) ?>&gt;</td></tr>
       <tr><td>Team copy / Reply-To</td><td><?= h(config('team_email')) ?></td></tr>
+      <?php if (config('mail_method') === 'graph'): ?>
+      <tr><td>Microsoft 365</td><td>sends as <?= h(config('graph_user') ?: config('mail_from')) ?><br>
+        <small>tenant <?= h(config('graph_tenant_id') ?: '(missing)') ?>, app <?= h(config('graph_client_id') ?: '(missing)') ?>,
+        secret <?= config('graph_client_secret') ? 'set' : '(missing)' ?></small></td></tr>
+      <?php endif; ?>
       <?php if (config('mail_method') === 'smtp'): ?>
       <tr><td>SMTP server</td><td><?= h(config('smtp_host')) ?> port <?= h(config('smtp_port')) ?> (<?= h(config('smtp_secure') ?: 'no encryption') ?>)</td></tr>
       <tr><td>SMTP login</td><td><?= h(config('smtp_user')) ?></td></tr>
