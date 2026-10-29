@@ -18,7 +18,8 @@ function page_header(string $title, ?array $user = null): void
             . '<a href="people.php">Salespeople</a>'
             . '<a href="users.php">Team</a>'
             . (!empty($user['is_admin']) ? '<a href="admin.php">Admin</a>' : '')
-            . '<a href="logout.php">Log out (' . h($user['name']) . ')</a>'
+            . '<a href="logout.php">Log out</a>'
+            . '<a href="profile.php">Profile (' . h($user['name']) . ')</a>'
             . '</nav>';
     }
     echo '</div></header><main class="wrap">';
