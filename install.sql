@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS users (
   id            INT AUTO_INCREMENT PRIMARY KEY,
   name          VARCHAR(100) NOT NULL,
   email         VARCHAR(190) NOT NULL UNIQUE,
+  title         VARCHAR(100) NULL,
+  phone         VARCHAR(50) NULL,
   password_hash VARCHAR(255) NOT NULL,
   -- 1 = can log in, 0 = registered but waiting for approval.
   approved      TINYINT(1) NOT NULL DEFAULT 1,

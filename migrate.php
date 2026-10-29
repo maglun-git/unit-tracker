@@ -60,4 +60,14 @@ if (!q('SELECT 1 FROM users WHERE is_admin = 1')->fetch()) {
     }
 }
 
+// October 2026: Profile page (users.title, users.phone).
+if (!column_exists('users', 'title')) {
+    q('ALTER TABLE users ADD COLUMN title VARCHAR(100) NULL AFTER email');
+    echo "Added users.title\n"; $done++;
+}
+if (!column_exists('users', 'phone')) {
+    q('ALTER TABLE users ADD COLUMN phone VARCHAR(50) NULL AFTER title');
+    echo "Added users.phone\n"; $done++;
+}
+
 echo $done ? "Database upgraded ($done change" . ($done === 1 ? '' : 's') . ").\n" : "Database already up to date.\n";
