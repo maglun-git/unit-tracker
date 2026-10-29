@@ -24,10 +24,15 @@ function mail_error(?string $set = null): string
 
 // $debug: pass an array to collect the conversation with the mail
 // server (used by the "Send test email" button in Admin).
-function send_email(string $to, string $subject, string $body, array $cc = [], ?array &$debug = null): bool
+// $html = true: $body is HTML (from an email template). A plain-text
+// copy is added too, for email programs that don't show HTML.
+function send_email(string $to, string $subject, string $body, array $cc = [], ?array &$debug = null, bool $html = false): bool
 {
     mail_error('');
     $cc = array_values(array_filter($cc, fn($a) => $a && strcasecmp($a, $to) !== 0));
+    if ($html) {
+        $body = html_email_page($body);
+    }
 
     // Testing aid: set 'mail_method' => 'log' to write emails to a file instead.
     if (config('mail_method') === 'log') {
@@ -36,7 +41,7 @@ function send_email(string $to, string $subject, string $body, array $cc = [], ?
     }
 
     if (config('mail_method') === 'graph') {
-        return graph_send($to, $subject, $body, $cc, $debug);
+        return graph_send($to, $subject, $body, $cc, $debug, $html);
     }
 
     $mail = new PHPMailer(true); // true = report problems as errors we can catch
@@ -81,7 +86,13 @@ function send_email(string $to, string $subject, string $body, array $cc = [], ?
         }
         $mail->XMailer = ' '; // don't advertise the software; some filters dislike it
         $mail->Subject = $subject;
-        $mail->Body = $body; // plain text: simple emails score well with spam filters
+        if ($html) {
+            $mail->isHTML(true);
+            $mail->Body = $body;
+            $mail->AltBody = html_to_text($body);
+        } else {
+            $mail->Body = $body;
+        }
         $mail->send();
         return true;
     } catch (MailException $e) {
@@ -89,6 +100,37 @@ function send_email(string $to, string $subject, string $body, array $cc = [], ?
         error_log('Email to ' . $to . ' failed: ' . mail_error());
         return false;
     }
+}
+
+// Puts the HTML from a template into a complete email page with a
+// plain, readable font. (Styles are written on the tag itself because
+// many email programs ignore <style> blocks.)
+function html_email_page(string $html): string
+{
+    return "<!doctype html>\n<html><head><meta charset=\"utf-8\"></head>\n"
+        . "<body style=\"margin:0;padding:16px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#1d2433\">\n"
+        . $html . "\n</body></html>";
+}
+
+// A plain-text version of an HTML email (links are kept as text).
+function html_to_text(string $html): string
+{
+    $text = preg_replace('#<(head|style|script)\b.*?</\1>#is', '', $html);
+    // <a href="X">Y</a> becomes "Y (X)", unless Y already is X.
+    $text = preg_replace_callback('#<a\s[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a>#is', function ($m) {
+        $label = trim(strip_tags($m[2]));
+        return ($label === '' || $label === $m[1]) ? $m[1] : "$label ({$m[1]})";
+    }, $text);
+    $text = preg_replace('/\s+/', ' ', $text); // line breaks in HTML source mean nothing
+    $text = preg_replace('#<br\s*/?>#i', "\n", $text);
+    $text = preg_replace('#</(p|div|h[1-6]|table|ul|ol)>#i', "\n\n", $text);
+    $text = preg_replace('#</(tr|li)>#i', "\n", $text);
+    $text = preg_replace('#</t[dh]>#i', "   ", $text);
+    $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $text = preg_replace("/[ \t]+\n/", "\n", $text);   // spaces at line ends
+    $text = preg_replace("/\n[ \t]+/", "\n", $text);   // spaces at line starts
+    $text = preg_replace("/\n{3,}/", "\n\n", $text);   // at most one empty line
+    return trim($text) . "\n";
 }
 
 // ============================================================
@@ -155,7 +197,7 @@ function graph_token(?array &$debug = null): ?string
     return $token;
 }
 
-function graph_send(string $to, string $subject, string $body, array $cc, ?array &$debug = null): bool
+function graph_send(string $to, string $subject, string $body, array $cc, ?array &$debug = null, bool $html = false): bool
 {
     $token = graph_token($debug);
     if (!$token) {
@@ -165,7 +207,7 @@ function graph_send(string $to, string $subject, string $body, array $cc, ?array
     $address = fn($a) => ['emailAddress' => ['address' => $a]];
     $message = [
         'subject'      => $subject,
-        'body'         => ['contentType' => 'Text', 'content' => $body],
+        'body'         => ['contentType' => $html ? 'HTML' : 'Text', 'content' => $body],
         'toRecipients' => [$address($to)],
         'ccRecipients' => array_map($address, $cc),
         'from'         => ['emailAddress' => ['address' => config('mail_from'), 'name' => (string)config('mail_from_name')]],

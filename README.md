@@ -26,6 +26,11 @@ and POC cameras you lend to salespeople, and emails reminders automatically.
   - on the due date
   - when overdue: the day after, and then every 7 days until it is returned
   - all of these days can be changed in `config.php`
+- **E-mail** (only for admins): change the subject and text (HTML) of every email
+  the tracker sends: new loan, reminders, due today, overdue, forgot password,
+  new accounts and the test email. Placeholders like `{{first_name}}`,
+  `{{unit}}` and `{{due_date}}` are filled in when the email is sent. There is a
+  preview, a "Send me a test" button, and "Go back to the standard text".
 
 ## The files
 
@@ -41,12 +46,13 @@ and POC cameras you lend to salespeople, and emails reminders automatically.
 | `admin.php` | Admin portal: users, reminder emails, email log. Admins only. |
 | `forgot.php`, `reset.php` | "Forgot password" and choosing a new password from the emailed link. |
 | `index.php` | Overview page. |
+| `emails.php` | The E-mail page: edit the email texts. Admins only. |
 | `loans.php`, `loan_edit.php` | List loans; send out / extend / return a unit. |
 | `units.php` | List, add and edit units. |
 | `people.php` | List, add and edit salespeople. |
 | `users.php` | List of team logins and changing your own password. |
 | `cron.php` | The reminder script your host runs once a day. |
-| `includes/` | Shared code: database connection, email sending, reminder rules, page layout. |
+| `includes/` | Shared code: database connection, email sending, email templates (`templates.php`, with the standard texts), reminder rules, page layout. |
 | `style.css` | The look of the pages. |
 | `.htaccess` | Stops browsers from opening `config.php` and other private files. |
 
