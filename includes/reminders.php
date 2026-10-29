@@ -44,41 +44,13 @@ function reminder_type_for(array $loan): ?string
     return 'overdue_' . intdiv($over - 1, $repeat);
 }
 
-// Builds the subject and text of an email for a loan.
-function build_email(array $loan, string $type): array
+// Which email template a loan email type uses (templates are edited on the E-mail page).
+function template_for_type(string $type): string
 {
-    $unit = $loan['model'] . ' (S/N ' . $loan['serial_number'] . ')';
-    $due = date('j M Y', strtotime($loan['due_date']));
-    $days = days_until($loan['due_date']);
-    $first = explode(' ', trim($loan['person_name']))[0];
-
-    if ($type === 'created') {
-        $subject = "Unit sent to you: $unit";
-        $intro = "A {$loan['purpose']} unit has been registered to you. Please return it by $due.";
-    } elseif (strpos($type, 'before_') === 0) {
-        $subject = "Reminder: $unit is due back in $days day" . ($days === 1 ? '' : 's');
-        $intro = "Friendly reminder: the unit below is due back on $due ($days day" . ($days === 1 ? '' : 's') . " from now).";
-    } elseif ($type === 'due_today') {
-        $subject = "Due today: please return $unit";
-        $intro = "The unit below is due back TODAY ($due).";
-    } else {
-        $over = -$days;
-        $subject = "OVERDUE: $unit was due $due";
-        $intro = "The unit below is now $over day" . ($over === 1 ? '' : 's') . " overdue (it was due $due). Please return it, or contact us if you need more time.";
-    }
-
-    $body = "Hi $first,\n\n$intro\n\n"
-        . "Unit:      {$loan['model']}\n"
-        . "Serial:    {$loan['serial_number']}\n"
-        . ($loan['asset_tag'] ? "Asset tag: {$loan['asset_tag']}\n" : '')
-        . "Purpose:   {$loan['purpose']}\n"
-        . ($loan['customer'] ? "Customer:  {$loan['customer']}\n" : '')
-        . "Sent out:  " . date('j M Y', strtotime($loan['start_date'])) . "\n"
-        . "Due back:  $due\n\n"
-        . "Need more time? Just reply to this email and we will extend the loan.\n\n"
-        . "Best regards,\n" . config('mail_from_name') . "\n";
-
-    return [$subject, $body];
+    if ($type === 'created') return 'loan_created';
+    if (strpos($type, 'before_') === 0) return 'reminder_before';
+    if ($type === 'due_today') return 'reminder_due_today';
+    return 'reminder_overdue';
 }
 
 // Sends one email for a loan and writes it to the log.
@@ -89,8 +61,7 @@ function send_loan_email(array $loan, string $type, bool $force = false): bool
         $already = q('SELECT 1 FROM reminder_log WHERE loan_id = ? AND reminder_type = ?', [$loan['id'], $type])->fetch();
         if ($already) return false;
     }
-    [$subject, $body] = build_email($loan, $type);
-    $ok = send_email($loan['person_email'], $subject, $body, [config('team_email')]);
+    $ok = send_template_email($loan['person_email'], template_for_type($type), loan_values($loan), [config('team_email')]);
     if ($ok) {
         // REPLACE also updates the time if it was sent before (manual resend).
         q('REPLACE INTO reminder_log (loan_id, reminder_type, sent_to) VALUES (?, ?, ?)',

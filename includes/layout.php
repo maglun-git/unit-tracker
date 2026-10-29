@@ -13,6 +13,7 @@ function page_header(string $title, ?array $user = null): void
         echo '<nav>'
             . '<a href="index.php">Overview</a>'
             . '<a href="loans.php">Loans</a>'
+            . (!empty($user['is_admin']) ? '<a href="emails.php">E-mail</a>' : '')
             . '<a href="units.php">Units</a>'
             . '<a href="people.php">Salespeople</a>'
             . '<a href="users.php">Team</a>'

@@ -82,3 +82,14 @@ CREATE TABLE IF NOT EXISTS reminder_log (
   FOREIGN KEY (loan_id) REFERENCES loans(id) ON DELETE CASCADE,
   UNIQUE KEY one_per_type (loan_id, reminder_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- The emails the tracker sends, as edited on the E-mail page (HTML).
+-- Templates that are not in this table use the standard text from
+-- includes/templates.php. (php migrate.php fills it with those texts.)
+CREATE TABLE IF NOT EXISTS email_templates (
+  code       VARCHAR(50) PRIMARY KEY,
+  subject    VARCHAR(255) NOT NULL,
+  body       MEDIUMTEXT NOT NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  updated_by VARCHAR(100) NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

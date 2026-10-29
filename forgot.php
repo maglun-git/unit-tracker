@@ -15,12 +15,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         q('DELETE FROM password_resets WHERE user_id = ?', [$user['id']]); // old links stop working
         q('INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES (?, ?, ?)',
           [$user['id'], hash('sha256', $token), date('Y-m-d H:i:s', time() + 3600)]);
-        send_email($user['email'], 'Reset your password',
-            "Hi {$user['name']},\n\n"
-            . "Someone (hopefully you) asked to reset your password for " . config('site_name') . ".\n"
-            . "Open this link to choose a new password. It works once, for 1 hour:\n\n"
-            . config('base_url') . '/reset.php?token=' . $token . "\n\n"
-            . "If you did not ask for this, you can ignore this email.\n");
+        send_template_email($user['email'], 'password_reset', [
+            'name' => $user['name'], 'reset_link' => config('base_url') . '/reset.php?token=' . $token,
+        ]);
     }
     sleep(1); // slows down guessing
     // Same answer whether or not the email exists, so nobody can use

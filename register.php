@@ -28,9 +28,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if (!$error) {
             // Let the team know who signed up.
-            send_email(config('team_email'), 'New account: ' . $name,
-                "$name ($email) created an account on " . config('site_name') . ".\n\n"
-                . "Admins can see and remove accounts here:\n" . config('base_url') . "/admin.php\n");
+            send_template_email(config('team_email'), 'new_account_notice', [
+                'name' => $name, 'email' => $email, 'admin_link' => config('base_url') . '/admin.php',
+            ]);
             // Log the new person in straight away.
             session_regenerate_id(true);
             $_SESSION['user_id'] = (int)db()->lastInsertId();

@@ -45,9 +45,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'test_email') {
         $to = trim($_POST['to'] ?? '');
         $debug = [];
-        $ok = filter_var($to, FILTER_VALIDATE_EMAIL) && send_email($to, 'Test email from ' . config('site_name'),
-            "Hi,\n\nThis is a test email from " . config('site_name') . ".\nIf you can read this, email sending works.\n\n"
-            . "Sent " . date('Y-m-d H:i') . "\n", [], $debug);
+        $ok = filter_var($to, FILTER_VALIDATE_EMAIL)
+            && send_template_email($to, 'test_email', ['sent_time' => date('Y-m-d H:i')], [], $debug);
         $test = ['ok' => $ok, 'to' => $to, 'error' => $ok ? '' : (mail_error() ?: 'Not a valid email address.'), 'debug' => $debug];
 
     // ---------- Users ----------
@@ -62,11 +61,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 q('INSERT INTO users (name, email, password_hash, is_admin) VALUES (?, ?, ?, ?)',
                   [$name, $email, password_hash($pass, PASSWORD_DEFAULT), isset($_POST['is_admin']) ? 1 : 0]);
                 if (isset($_POST['send_email'])) {
-                    send_email($email, 'Your account on ' . config('site_name'),
-                        "Hi $name,\n\nAn account has been made for you on " . config('site_name') . ".\n\n"
-                        . "Log in here: " . config('base_url') . "/login.php\n"
-                        . "Email:    $email\nPassword: $pass\n\n"
-                        . "Please change the password under Team after you log in.\n");
+                    send_template_email($email, 'account_created', [
+                        'name' => $name, 'email' => $email, 'password' => $pass,
+                        'login_link' => config('base_url') . '/login.php',
+                    ]);
                 }
                 flash("Account created for $name.");
             } catch (PDOException $e) {

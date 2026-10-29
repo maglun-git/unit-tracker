@@ -51,6 +51,25 @@ if (!column_exists('users', 'is_admin')) {
     echo "Added users.is_admin ($n admin set)\n"; $done++;
 }
 
+// October 2026: editable email templates (E-mail page). Filled with the
+// texts the tracker already used, so emails look the same until edited.
+if (!table_exists('email_templates')) {
+    q("CREATE TABLE email_templates (
+         code       VARCHAR(50) PRIMARY KEY,
+         subject    VARCHAR(255) NOT NULL,
+         body       MEDIUMTEXT NOT NULL,
+         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+         updated_by VARCHAR(100) NULL
+       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    echo "Created table email_templates\n"; $done++;
+}
+foreach (default_templates() as $code => $t) {
+    // INSERT IGNORE skips templates that are already there, so edits are kept.
+    $n = q('INSERT IGNORE INTO email_templates (code, subject, body, updated_by) VALUES (?, ?, ?, ?)',
+           [$code, $t['subject'], $t['body'], 'Standard text'])->rowCount();
+    if ($n) { echo "Added email template: {$t['name']}\n"; $done++; }
+}
+
 // Nobody is admin yet? Make the first account (the one made in setup.php) admin.
 if (!q('SELECT 1 FROM users WHERE is_admin = 1')->fetch()) {
     $first = q('SELECT id, name, email FROM users ORDER BY id LIMIT 1')->fetch();

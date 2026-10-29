@@ -145,4 +145,5 @@ function loan_badge(array $loan): string
 
 require_once __DIR__ . '/layout.php';
 require_once __DIR__ . '/mailer.php';
+require_once __DIR__ . '/templates.php';
 require_once __DIR__ . '/reminders.php';

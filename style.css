@@ -48,3 +48,11 @@ form.inline { display: inline; }
   table { display: block; overflow-x: auto; }
   nav a { margin: 0 12px 0 0; }
 }
+/* E-mail page */
+.editor { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; align-items: start; }
+textarea.code { font: 13px/1.45 ui-monospace, Menlo, Consolas, monospace; }
+.placeholders { box-shadow: none; }
+.placeholders td { padding: 4px 8px 4px 0; font-size: 13px; }
+.placeholders a { text-decoration: none; }
+.email-preview { width: 100%; height: 420px; border: 1px solid #e7eaf0; border-radius: 6px; background: #fff; }
+@media (max-width: 900px) { .editor { grid-template-columns: 1fr; } }
