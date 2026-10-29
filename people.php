@@ -14,7 +14,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = [
         trim($_POST['name'] ?? ''),
         trim($_POST['email'] ?? ''),
+        trim($_POST['phone'] ?? '') ?: null,
         trim($_POST['region'] ?? '') ?: null,
+        trim($_POST['notes'] ?? '') ?: null,
         isset($_POST['active']) ? 1 : 0,
     ];
     if ($data[0] === '' || !filter_var($data[1], FILTER_VALIDATE_EMAIL)) {
@@ -23,9 +25,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     try {
         if ($id === 'new') {
-            q('INSERT INTO salespeople (name, email, region, active) VALUES (?, ?, ?, ?)', $data);
+            q('INSERT INTO salespeople (name, email, phone, region, notes, active) VALUES (?, ?, ?, ?, ?, ?)', $data);
         } else {
-            q('UPDATE salespeople SET name = ?, email = ?, region = ?, active = ? WHERE id = ?', array_merge($data, [(int)$id]));
+            q('UPDATE salespeople SET name = ?, email = ?, phone = ?, region = ?, notes = ?, active = ? WHERE id = ?', array_merge($data, [(int)$id]));
         }
         flash('Salesperson saved.');
         redirect('people.php');
@@ -37,9 +39,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 if ($id !== null) {
     $p = $id === 'new'
-        ? ['name' => '', 'email' => '', 'region' => '', 'active' => 1]
+        ? ['name' => '', 'email' => '', 'phone' => '', 'region' => '', 'notes' => '', 'active' => 1]
         : q('SELECT * FROM salespeople WHERE id = ?', [(int)$id])->fetch();
     if (!$p) redirect('people.php');
+
+    // Every Region/location already used by someone. They fill the
+    // suggestion list; a new value typed in shows up here next time.
+    $regions = q("SELECT DISTINCT region FROM salespeople
+                  WHERE region IS NOT NULL AND region <> '' ORDER BY region")->fetchAll(PDO::FETCH_COLUMN);
 
     page_header($id === 'new' ? 'New salesperson' : 'Edit salesperson', $user);
     ?>
@@ -47,7 +54,14 @@ if ($id !== null) {
       <?= csrf_field() ?>
       <label>Name <input name="name" value="<?= h($p['name']) ?>" required></label>
       <label>Email <input type="email" name="email" value="<?= h($p['email']) ?>" required></label>
-      <label>Region / team (optional) <input name="region" value="<?= h($p['region']) ?>"></label>
+      <label>Phone (optional) <input type="tel" name="phone" value="<?= h($p['phone']) ?>"></label>
+      <label>Region/location (optional)
+        <input name="region" list="regions" value="<?= h($p['region']) ?>" autocomplete="off" placeholder="Pick from the list or type a new one">
+      </label>
+      <datalist id="regions">
+        <?php foreach ($regions as $r): ?><option value="<?= h($r) ?>"><?php endforeach; ?>
+      </datalist>
+      <label>Notes (optional) <textarea name="notes" rows="4"><?= h($p['notes']) ?></textarea></label>
       <label class="check"><input type="checkbox" name="active" <?= $p['active'] ? 'checked' : '' ?>> Active (shown when sending out units)</label>
       <button>Save</button> <a href="people.php">Cancel</a>
     </form>
@@ -62,14 +76,15 @@ $people = q('SELECT s.*,
 
 page_header('Salespeople', $user);
 ?>
-<p><a class="button" href="people.php?id=new">+ Add salesperson</a></p>
+<p><a class="button" href="people.php?id=new">+ Add salesperson</a> <a class="button secondary" href="people_import.php">Import from CSV</a></p>
 <table>
-  <tr><th>Name</th><th>Email</th><th>Region</th><th>Units out</th><th></th></tr>
+  <tr><th>Name</th><th>Email</th><th>Phone</th><th>Region/location</th><th>Units out</th><th></th></tr>
   <?php foreach ($people as $p): ?>
   <tr class="<?= $p['active'] ? '' : 'muted' ?>">
     <td><?= h($p['name']) ?><?= $p['active'] ? '' : ' (inactive)' ?></td>
     <td><?= h($p['email']) ?></td>
-    <td><?= h($p['region']) ?></td>
+    <td><?= h($p['phone']) ?></td>
+    <td><?= h($p['region']) ?><?= $p['notes'] ? ' <span class="muted" title="' . h($p['notes']) . '">(notes)</span>' : '' ?></td>
     <td><a href="loans.php?person=<?= $p['id'] ?>"><?= (int)$p['units_out'] ?></a></td>
     <td><a href="people.php?id=<?= $p['id'] ?>">Edit</a></td>
   </tr>

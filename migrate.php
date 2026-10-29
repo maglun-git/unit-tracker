@@ -89,4 +89,14 @@ if (!column_exists('users', 'phone')) {
     echo "Added users.phone\n"; $done++;
 }
 
+// October 2026: phone and notes for salespeople.
+if (!column_exists('salespeople', 'phone')) {
+    q('ALTER TABLE salespeople ADD COLUMN phone VARCHAR(50) NULL AFTER email');
+    echo "Added salespeople.phone\n"; $done++;
+}
+if (!column_exists('salespeople', 'notes')) {
+    q('ALTER TABLE salespeople ADD COLUMN notes TEXT NULL AFTER region');
+    echo "Added salespeople.notes\n"; $done++;
+}
+
 echo $done ? "Database upgraded ($done change" . ($done === 1 ? '' : 's') . ").\n" : "Database already up to date.\n";
