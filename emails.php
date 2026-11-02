@@ -76,7 +76,30 @@ if ($code !== '') {
   <form method="post" class="card" id="template-form">
     <?= csrf_field() ?>
     <label>Subject <input name="subject" id="subject" value="<?= h($form['subject']) ?>" required></label>
-    <label>Text (HTML) <textarea name="body" id="body" rows="20" class="code" required><?= h($form['body']) ?></textarea></label>
+    <label for="body">Text</label>
+    <div class="wysiwyg" id="wysiwyg" hidden>
+      <div class="wy-toolbar" role="toolbar" aria-label="Formatting">
+        <select data-block title="Paragraph style">
+          <option value="p">Normal text</option>
+          <option value="h2">Heading</option>
+          <option value="h3">Small heading</option>
+        </select>
+        <button type="button" data-cmd="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+        <button type="button" data-cmd="italic" title="Italic (Ctrl+I)"><i>I</i></button>
+        <button type="button" data-cmd="underline" title="Underline (Ctrl+U)"><u>U</u></button>
+        <label class="wy-color" title="Text colour"><span>A</span><input type="color" data-color value="#c0392b"></label>
+        <span class="wy-sep"></span>
+        <button type="button" data-cmd="insertUnorderedList" title="Bulleted list">&bull;&ndash;</button>
+        <button type="button" data-cmd="insertOrderedList" title="Numbered list">1.&ndash;</button>
+        <span class="wy-sep"></span>
+        <button type="button" data-link title="Make the selected text a link">Link</button>
+        <button type="button" data-cmd="unlink" title="Remove link">Unlink</button>
+        <button type="button" data-cmd="removeFormat" title="Remove bold, colour etc. from the selected text">Clear</button>
+        <button type="button" data-source class="wy-source" title="Show or edit the HTML code">&lt;/&gt; HTML</button>
+      </div>
+      <div class="wy-area" id="wy-area" contenteditable="true" spellcheck="true"></div>
+    </div>
+    <textarea name="body" id="body" rows="20" class="code"><?= h($form['body']) ?></textarea>
     <button name="action" value="save">Save</button>
     <button name="action" value="preview" class="secondary">Preview</button>
     <button name="action" value="test" class="secondary">Send me a test</button>
@@ -90,11 +113,11 @@ if ($code !== '') {
       <tr><td><a href="#" data-insert="{{<?= h($name) ?>}}"><code>{{<?= h($name) ?>}}</code></a></td><td><?= h($about) ?></td></tr>
       <?php endforeach; ?>
     </table>
-    <h2>HTML tips</h2>
-    <p class="muted"><code>&lt;p&gt;…&lt;/p&gt;</code> paragraph,
-      <code>&lt;br&gt;</code> new line, <code>&lt;b&gt;…&lt;/b&gt;</code> bold,
-      <code>&lt;a href="…"&gt;…&lt;/a&gt;</code> link.
-      Write styles on the tag, like <code>&lt;p style="color:#c0392b"&gt;</code>; many email programs ignore <code>&lt;style&gt;</code> blocks.</p>
+    <h2>Tips</h2>
+    <p class="muted">Write the email like in a normal word processor. Enter starts a new paragraph,
+      Shift+Enter a new line. Pasted text comes in without formatting, so the email stays clean.
+      Click <b>&lt;/&gt; HTML</b> to see or change the code itself, for example
+      <code>&lt;p style="color:#c0392b"&gt;</code>; many email programs ignore <code>&lt;style&gt;</code> blocks.</p>
   </div>
 </div>
 
@@ -112,21 +135,152 @@ if ($code !== '') {
 <?php endif; ?>
 
 <script>
-// Clicking a placeholder puts it into the subject or text, at the cursor.
-var lastField = document.getElementById('body');
-['subject', 'body'].forEach(function (id) {
-  document.getElementById(id).addEventListener('focus', function () { lastField = this; });
-});
-document.querySelectorAll('[data-insert]').forEach(function (link) {
-  link.addEventListener('click', function (e) {
-    e.preventDefault();
-    var f = lastField, text = this.getAttribute('data-insert');
-    var start = f.selectionStart, end = f.selectionEnd;
-    f.value = f.value.slice(0, start) + text + f.value.slice(end);
-    f.focus();
-    f.selectionStart = f.selectionEnd = start + text.length;
+// A small WYSIWYG ("what you see is what you get") editor for the email text.
+// The real form field is still the <textarea name="body">: the editor shows the
+// same HTML as formatted text, and copies its HTML back into the textarea
+// before anything is sent. Without JavaScript the plain textarea is used.
+(function () {
+  var form = document.getElementById('template-form');
+  var textarea = document.getElementById('body');
+  var subject = document.getElementById('subject');
+  var box = document.getElementById('wysiwyg');
+  var area = document.getElementById('wy-area');
+  var sourceBtn = box.querySelector('[data-source]');
+  var blockSelect = box.querySelector('[data-block]');
+  var sourceMode = false;   // true while the HTML code is shown
+  var savedRange = null;    // where the cursor was in the editor
+  var lastField = area;     // the field a placeholder click goes into
+
+  function exec(cmd, value) {
+    area.focus();
+    restoreRange();
+    document.execCommand(cmd, false, value === undefined ? null : value);
+    saveRange();
+    sync();
+  }
+  // Copy the editor's HTML into the real form field.
+  function sync() {
+    if (!sourceMode) textarea.value = area.innerHTML;
+  }
+  function saveRange() {
+    var sel = window.getSelection();
+    if (sel.rangeCount && area.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+      savedRange = sel.getRangeAt(0).cloneRange();
+    }
+  }
+  function restoreRange() {
+    if (!savedRange) return;
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(savedRange);
+  }
+
+  // Start: show the editor, hide the code box.
+  area.innerHTML = textarea.value;
+  box.appendChild(textarea);   // the code box sits inside the editor frame
+  box.hidden = false;
+  textarea.hidden = true;
+  try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch (e) {}
+
+  area.addEventListener('input', sync);
+  ['keyup', 'mouseup', 'focus'].forEach(function (ev) {
+    area.addEventListener(ev, function () { saveRange(); lastField = area; });
   });
-});
+  document.addEventListener('selectionchange', function () {
+    if (document.activeElement === area) saveRange();
+  });
+  subject.addEventListener('focus', function () { lastField = subject; });
+  textarea.addEventListener('focus', function () { lastField = textarea; });
+
+  // Pasted text comes in as plain text, so no hidden Word/web styles end up in the email.
+  area.addEventListener('paste', function (e) {
+    var text = (e.clipboardData || window.clipboardData).getData('text/plain');
+    if (!text) return;
+    e.preventDefault();
+    document.execCommand('insertText', false, text);
+  });
+
+  // Toolbar buttons. mousedown + preventDefault keeps the text selected.
+  box.querySelectorAll('[data-cmd]').forEach(function (btn) {
+    btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    btn.addEventListener('click', function () { exec(this.getAttribute('data-cmd')); });
+  });
+  blockSelect.addEventListener('change', function () {
+    exec('formatBlock', '<' + this.value + '>');
+  });
+  box.querySelector('[data-color]').addEventListener('input', function () {
+    // Colours as style="color:…" on the text, which email programs understand.
+    document.execCommand('styleWithCSS', false, true);
+    exec('foreColor', this.value);
+    document.execCommand('styleWithCSS', false, false);
+  });
+  var linkBtn = box.querySelector('[data-link]');
+  linkBtn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+  linkBtn.addEventListener('click', function () {
+    restoreRange();
+    if (!savedRange || savedRange.collapsed) {
+      alert('First select the text that should become a link.');
+      return;
+    }
+    var url = prompt('Link address (for example https://… or {{site_url}}):', 'https://');
+    if (url && url !== 'https://') exec('createLink', url);
+  });
+
+  // Show the paragraph style of the text where the cursor is.
+  document.addEventListener('selectionchange', function () {
+    if (document.activeElement !== area) return;
+    var block = (document.queryCommandValue('formatBlock') || 'p').toLowerCase();
+    blockSelect.value = (block === 'h2' || block === 'h3') ? block : 'p';
+  });
+
+  // Switch between the formatted view and the HTML code.
+  sourceBtn.addEventListener('click', function () {
+    if (sourceMode) {
+      area.innerHTML = textarea.value;
+      textarea.hidden = true;
+      area.hidden = false;
+      lastField = area;
+      area.focus();
+    } else {
+      sync();
+      textarea.hidden = false;
+      area.hidden = true;
+      lastField = textarea;
+      textarea.focus();
+    }
+    sourceMode = !sourceMode;
+    sourceBtn.classList.toggle('active', sourceMode);
+    box.querySelectorAll('.wy-toolbar > :not([data-source])').forEach(function (el) {
+      el.disabled = sourceMode;
+      el.classList.toggle('off', sourceMode);
+    });
+  });
+
+  form.addEventListener('submit', sync);
+
+  // Clicking a placeholder puts it where the cursor is (subject, editor or HTML code).
+  document.querySelectorAll('[data-insert]').forEach(function (link) {
+    link.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    link.addEventListener('click', function (e) {
+      e.preventDefault();
+      var text = this.getAttribute('data-insert');
+      if (lastField === area && !sourceMode) {
+        area.focus();
+        if (savedRange) restoreRange();
+        else { var r = document.createRange(); r.selectNodeContents(area); r.collapse(false); savedRange = r; restoreRange(); }
+        document.execCommand('insertText', false, text);
+        saveRange();
+        sync();
+        return;
+      }
+      var f = lastField === area ? textarea : lastField;
+      var start = f.selectionStart, end = f.selectionEnd;
+      f.value = f.value.slice(0, start) + text + f.value.slice(end);
+      f.focus();
+      f.selectionStart = f.selectionEnd = start + text.length;
+    });
+  });
+})();
 </script>
 <?php
     page_footer();
