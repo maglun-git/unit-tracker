@@ -21,6 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         trim($_POST['asset_tag'] ?? '') ?: null,
         array_key_exists($_POST['status'] ?? '', $statuses) ? $_POST['status'] : 'available',
         trim($_POST['notes'] ?? '') ?: null,
+        strtoupper(trim($_POST['part_number'] ?? '')) ?: null,
     ];
     if ($data[0] === '' || $data[1] === '') {
         flash('Model and serial number are required.', 'err');
@@ -35,11 +36,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     try {
         if ($id === 'new') {
-            q('INSERT INTO units (model, serial_number, asset_tag, status, notes) VALUES (?, ?, ?, ?, ?)', $data);
+            q('INSERT INTO units (model, serial_number, asset_tag, status, notes, part_number) VALUES (?, ?, ?, ?, ?, ?)', $data);
             $savedId = (int)db()->lastInsertId();
             flash('Added: ' . $data[0] . ', S/N ' . $data[1] . '.');
         } else {
-            q('UPDATE units SET model = ?, serial_number = ?, asset_tag = ?, status = ?, notes = ? WHERE id = ?',
+            q('UPDATE units SET model = ?, serial_number = ?, asset_tag = ?, status = ?, notes = ?, part_number = ? WHERE id = ?',
               array_merge($data, [(int)$id]));
             $savedId = (int)$id;
             flash('Unit saved.');
@@ -53,11 +54,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Units read from one or more label photos (the "Upload SN label photo" button).
-// The form sends lists: model[] and serial_number[], one pair per photo.
+// The form sends lists: model[], serial_number[] and part_number[], one of each per photo.
 function save_units_from_photos(): void
 {
     $models = (array)($_POST['model'] ?? []);
     $serials = (array)($_POST['serial_number'] ?? []);
+    $parts = (array)($_POST['part_number'] ?? []);
     $added = [];     // "Q1951-E (B8A44F27ACF5)" for the message
     $problems = [];  // why some could not be added
     $show = [];      // unit ids to show at the top of the list
@@ -65,6 +67,8 @@ function save_units_from_photos(): void
         $model = trim((string)$model);
         // Serials on Axis labels are upper case, without spaces.
         $serial = strtoupper(preg_replace('/\s+/', '', (string)($serials[$i] ?? '')));
+        // The P/N from the label (e.g. 02150-001-01), so the model is known next time.
+        $part = strtoupper(trim((string)($parts[$i] ?? ''))) ?: null;
         if ($model === '' && $serial === '') continue;
         if ($model === '' || $serial === '') {
             $problems[] = 'photo ' . ($i + 1) . ' needs both a model and a serial number';
@@ -78,7 +82,7 @@ function save_units_from_photos(): void
             continue;
         }
         try {
-            q('INSERT INTO units (model, serial_number, status) VALUES (?, ?, ?)', [$model, $serial, 'available']);
+            q('INSERT INTO units (model, serial_number, part_number, status) VALUES (?, ?, ?, ?)', [$model, $serial, $part, 'available']);
             $show[] = (int)db()->lastInsertId();
             $added[] = "$model ($serial)";
         } catch (PDOException $e) {
@@ -101,7 +105,7 @@ function save_units_from_photos(): void
 // ---- Showing the form ----
 if ($id !== null) {
     $unit = $id === 'new'
-        ? ['model' => '', 'serial_number' => '', 'asset_tag' => '', 'status' => 'available', 'notes' => '']
+        ? ['model' => '', 'serial_number' => '', 'part_number' => '', 'asset_tag' => '', 'status' => 'available', 'notes' => '']
         : q('SELECT * FROM units WHERE id = ?', [(int)$id])->fetch();
     if (!$unit) redirect('units.php');
 
@@ -109,8 +113,9 @@ if ($id !== null) {
     ?>
     <form method="post" class="card narrow">
       <?= csrf_field() ?>
-      <label>Model <input name="model" value="<?= h($unit['model']) ?>" required placeholder="e.g. AXIS Q1656"></label>
+      <label>Model <input name="model" value="<?= h($unit['model']) ?>" required placeholder="e.g. Q1971-E 7mm 8.3fps"></label>
       <label>Serial number <input name="serial_number" value="<?= h($unit['serial_number']) ?>" required></label>
+      <label>Part number, P/N (optional) <input name="part_number" value="<?= h($unit['part_number'] ?? '') ?>" placeholder="e.g. 02150-001-01"></label>
       <label>Asset tag (optional) <input name="asset_tag" value="<?= h($unit['asset_tag']) ?>"></label>
       <label>Status
         <select name="status">
@@ -209,6 +214,15 @@ page_header('Units', $user);
   <?php endforeach; ?>
 </table>
 <?php if (!$units) echo '<p class="muted empty">No units yet. Add your first one above.</p>'; ?>
+<?php
+// Part numbers already registered and their model, newest first, so a label photo
+// with a known P/N gets the same model text: {"02150-001": "Q1951-E 7mm 30fps"}.
+$knownParts = [];
+foreach (q('SELECT part_number, model FROM units WHERE part_number IS NOT NULL ORDER BY id DESC')->fetchAll() as $p) {
+    $knownParts[substr($p['part_number'], 0, 9)] ??= $p['model'];
+}
+?>
+<script>window.KNOWN_PARTS = <?= json_encode($knownParts, JSON_HEX_TAG | JSON_HEX_AMP) ?: '{}' ?>;</script>
 <script src="vendor/tesseract/tesseract.min.js"></script>
 <script src="vendor/zxing/zxing-reader.js"></script>
 <script src="js/label-scan.js"></script>

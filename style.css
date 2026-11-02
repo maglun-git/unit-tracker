@@ -146,7 +146,8 @@ label.photo-button { display: inline-flex; align-items: center; gap: 8px; margin
 @media (hover: none) { .drop-hint { display: none; } } /* phones: no dragging */
 .scan-panel { max-width: 760px; }
 .scan-item { display: grid; grid-template-columns: 140px 1fr auto; gap: 14px; align-items: start; padding: 12px 0; border-top: 1px solid #e7eaf0; }
-.scan-item img { width: 140px; height: 105px; object-fit: cover; border-radius: 6px; background: #1d2433; }
+.scan-item img { width: 140px; height: 105px; object-fit: cover; border-radius: 6px; background: #1d2433; cursor: zoom-in; }
+.scan-item img:hover, .scan-item img:focus { outline: 3px solid #1a5fd0; outline-offset: 2px; }
 .scan-item label { margin-bottom: 6px; }
 .scan-item-status { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: #6b7385; }
 .scan-item.ok .scan-item-status { color: #1e7b3a; }
@@ -155,6 +156,13 @@ label.photo-button { display: inline-flex; align-items: center; gap: 8px; margin
 .scan-item.busy input { opacity: .5; }
 #scan-buttons { padding-top: 12px; border-top: 1px solid #e7eaf0; }
 .drop-overlay { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: rgba(26,95,208,.12); border: 4px dashed #1a5fd0; pointer-events: none; }
+.photo-viewer { position: fixed; inset: 0; z-index: 200; overflow: auto; display: flex; background: rgba(15,20,30,.88); }
+.photo-viewer img { margin: auto; max-width: 96vw; max-height: 92vh; cursor: zoom-in; border-radius: 4px; box-shadow: 0 8px 40px rgba(0,0,0,.5); }
+.photo-viewer.zoomed img { max-width: none; max-height: none; cursor: zoom-out; border-radius: 0; }
+.photo-viewer-close { position: fixed; top: 14px; right: 18px; width: 44px; height: 44px; padding: 0; border-radius: 50%; font-size: 28px; line-height: 1; background: rgba(255,255,255,.15); color: #fff; }
+.photo-viewer-close:hover { background: rgba(255,255,255,.3); }
+.photo-viewer-hint { position: fixed; bottom: 10px; left: 0; right: 0; margin: 0; text-align: center; color: #c9cfda; font-size: 13px; pointer-events: none; }
+body.no-scroll { overflow: hidden; }
 .drop-overlay div { background: #fff; padding: 24px 32px; border-radius: 10px; font-size: 20px; font-weight: 700; text-align: center; box-shadow: 0 6px 24px rgba(0,0,0,.15); }
 @media (max-width: 560px) {
   .scan-item { grid-template-columns: 90px 1fr; }

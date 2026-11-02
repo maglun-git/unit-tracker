@@ -4,9 +4,14 @@
 // Everything happens in the browser, so nothing extra is needed on the web host:
 //   1. The square barcode on the label (a DataMatrix) is read with ZXing.
 //      On Axis labels it starts with the serial number, e.g. "B8A44F27ACF5,02150-001-01,...".
-//   2. The printed text is read with Tesseract (OCR) to find the model ("AXIS Q1951-E ...").
+//      The barcode also holds the part number (P/N). If a unit with the same P/N is already
+//      registered, its model is used, so the text does not even have to be read.
+//   2. The printed text is read with Tesseract (OCR) to find the full model
+//      ("AXIS Q1971-E 7 mm 8.3 fps" -> "Q1971-E 7mm 8.3fps"). Labels look different
+//      from model to model, so the area around the barcode, the whole photo and the
+//      photo turned sideways are tried until the label makes sense.
 //      If the barcode could not be read, the S/N is taken from the text instead.
-//   3. Each photo becomes one row (one unit). If every row was read with certainty,
+//   3. Each photo becomes one row (one unit). Click a photo to see it large. If every row was read with certainty,
 //      all units are saved straight away. Otherwise the rows are shown so the user
 //      can check or fix them, then press "Save all".
 // The libraries live in vendor/ (copied from npm), so no outside website is used.
@@ -23,6 +28,8 @@
   var buttons = document.getElementById('scan-buttons');
   var overlay = document.getElementById('drop-overlay');
   var vendor = new URL('vendor/', location.href).href;
+  // Part numbers already registered, e.g. {"02150-001": "Q1951-E 7mm 30fps"} (set by units.php).
+  var knownParts = window.KNOWN_PARTS || {};
 
   // Known start of Axis serial numbers (the serial is the camera's network MAC address).
   // Used to fix the most common OCR mix-up, B and 8, at the start of the serial.
@@ -41,6 +48,14 @@
       ocrWorker.catch(function () { ocrWorker = null; });
     }
     return ocrWorker;
+  }
+  // Tesseract's page layout guess: 3 = normal page, 11 = scattered bits of text
+  // (better for labels with text in several boxes or columns).
+  var ocrMode = null;
+  async function setOcrMode(worker, mode) {
+    if (ocrMode === mode) return;
+    await worker.setParameters({ tessedit_pageseg_mode: String(mode) });
+    ocrMode = mode;
   }
   var zxingReady = false;
   function prepareZxing() {
@@ -126,14 +141,20 @@
     var row = document.createElement('div');
     row.className = 'scan-item busy';
     row.innerHTML =
-      '<img alt="Label photo">' +
+      '<img alt="Label photo" title="Click to enlarge" tabindex="0">' +
       '<div class="scan-item-fields">' +
       '  <p class="scan-item-status">Waiting…</p>' +
       '  <label>Model <input name="model[]" list="known-models" placeholder="e.g. Q1951-E" autocapitalize="characters"></label>' +
       '  <label>Serial number (S/N) <input name="serial_number[]" placeholder="e.g. B8A44F27ACF5" autocapitalize="characters" autocomplete="off" spellcheck="false"></label>' +
+      '  <input type="hidden" name="part_number[]">' +
       '</div>' +
       '<button type="button" class="link scan-remove" title="Do not add this one">Remove</button>';
-    row.querySelector('img').src = URL.createObjectURL(file);
+    var img = row.querySelector('img');
+    img.src = URL.createObjectURL(file);
+    img.addEventListener('click', function () { openPhoto(img.src); });
+    img.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPhoto(img.src); }
+    });
     row.querySelector('.scan-remove').addEventListener('click', function () {
       queue = queue.filter(function (r) { return r !== row; });
       row.remove();
@@ -162,18 +183,24 @@
     var status = row.querySelector('.scan-item-status');
     var model = row.querySelector('[name="model[]"]');
     var serial = row.querySelector('[name="serial_number[]"]');
+    var part = row.querySelector('[name="part_number[]"]');
     status.textContent = 'Reading…';
     try {
-      var canvas = await photoToCanvas(row.file, 2400);
+      var canvas = await photoToCanvas(row.file, 3000);
       var code = await readDataMatrix(canvas);
-      var text = await readText(canvas);
-      var found = parseLabel(text, code);
+      var found = parseLabel('', code.text);
+      // Same part number as a unit we already have: take its model and skip the slow text reading.
+      if (!found.sure) {
+        var text = await readText(canvas, code, function (step) { status.textContent = 'Reading… (' + step + ')'; });
+        found = parseLabel(text, code.text);
+      }
       model.value = found.model;
       serial.value = found.serial;
+      part.value = found.part;
       row.readSure = found.sure;
       status.textContent = found.sure ? 'Read OK'
-        : (!found.model && !found.serial ? 'Could not read the label. Type the values or remove the row.'
-        : 'Please check: the photo was not fully clear.');
+        : (!found.model && !found.serial ? 'Could not read the label. Click the photo to see it large, then type the values or remove the row.'
+        : 'Please check: the photo was not fully clear. Click it to see it large.');
     } catch (err) {
       row.readSure = false;
       status.textContent = 'Could not read the photo (' + (err && err.message ? err.message : err) + ').';
@@ -235,95 +262,255 @@
     });
   }
 
+  // The photo turned by any angle, on a canvas big enough to hold all of it.
   function rotated(canvas, degrees) {
     var c = document.createElement('canvas');
-    var quarter = degrees % 180 !== 0;
-    c.width = quarter ? canvas.height : canvas.width;
-    c.height = quarter ? canvas.width : canvas.height;
+    var rad = degrees * Math.PI / 180, cos = Math.abs(Math.cos(rad)), sin = Math.abs(Math.sin(rad));
+    c.width = Math.round(canvas.width * cos + canvas.height * sin);
+    c.height = Math.round(canvas.width * sin + canvas.height * cos);
     var ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, c.width, c.height);
     ctx.translate(c.width / 2, c.height / 2);
     ctx.rotate(degrees * Math.PI / 180);
     ctx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
     return c;
   }
 
-  // The square barcode. Returns its text, or '' if there is none or it is unreadable.
-  async function readDataMatrix(canvas) {
-    if (!window.ZXingWASM) return '';
-    prepareZxing();
-    try {
-      var data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
-      var results = await ZXingWASM.readBarcodes(data, { formats: ['DataMatrix'], tryHarder: true, maxNumberOfSymbols: 1 });
-      return results.length && results[0].isValid ? results[0].text : '';
-    } catch (e) {
-      return '';
+  // How many degrees the label is tilted in the photo (between -25 and 25). OCR fails on
+  // tilted text, so the photo is turned straight first. Edges (print and label border) are
+  // found in a small copy; at the right angle they line up in rows, which gives the
+  // sharpest peaks when counted row by row.
+  function tilt(canvas) {
+    var small = shrunk(canvas, 700), w = small.width, h = small.height;
+    var px = small.getContext('2d').getImageData(0, 0, w, h).data;
+    var g = new Uint8Array(w * h);
+    for (var i = 0; i < w * h; i++) g[i] = (px[i * 4] * 3 + px[i * 4 + 1] * 6 + px[i * 4 + 2]) / 10;
+    var xs = [], ys = [];
+    for (var y = 0; y < h - 1; y++) {
+      for (var x = 0; x < w - 1; x++) {
+        var k = y * w + x;
+        if (Math.abs(g[k] - g[k + 1]) + Math.abs(g[k] - g[k + w]) > 60) { xs.push(x - w / 2); ys.push(y - h / 2); }
+      }
     }
+    if (xs.length < 200) return 0;
+    var step = Math.max(1, Math.floor(xs.length / 30000));
+    var size = Math.ceil(Math.hypot(w, h)) + 2, best = 0, bestScore = -1;
+    for (var a = -25; a <= 25; a += 0.5) {
+      var rad = a * Math.PI / 180, sin = Math.sin(rad), cos = Math.cos(rad);
+      var bins = new Uint32Array(size), score = 0;
+      for (var j = 0; j < xs.length; j += step) bins[Math.round(ys[j] * cos - xs[j] * sin + size / 2)]++;
+      for (var b = 0; b < size; b++) score += bins[b] * bins[b];
+      if (score > bestScore) { bestScore = score; best = a; }
+    }
+    return Math.abs(best) < 1 ? 0 : best;
   }
 
-  // The printed text. If nothing label-like is found, the photo may be sideways,
-  // so it is turned a quarter at a time and read again.
-  async function readText(canvas) {
-    var worker = await getOcrWorker();
-    var best = '', bestScore = -1;
-    var turns = [0, 90, 270, 180];
-    for (var i = 0; i < turns.length; i++) {
-      var img = turns[i] ? rotated(canvas, turns[i]) : canvas;
-      var result = await worker.recognize(img);
-      var text = result.data.text || '';
-      var found = parseLabel(text, '');
-      // 2 points for a model on an "AXIS ..." line, 1 for a 12 character S/N.
-      var score = (found.model && /AX.?S\s/i.test(text) ? 2 : 0) + (found.serial.length === 12 ? 1 : 0);
-      if (score > bestScore) { best = text; bestScore = score; }
-      if (score === 3) break;
+  // A grey copy with the contrast stretched, so faint or greyish print stands out.
+  function enhanced(canvas) {
+    var c = document.createElement('canvas');
+    c.width = canvas.width; c.height = canvas.height;
+    var ctx = c.getContext('2d');
+    ctx.drawImage(canvas, 0, 0);
+    var data = ctx.getImageData(0, 0, c.width, c.height), px = data.data;
+    var count = new Array(256).fill(0), n = px.length / 4;
+    for (var i = 0; i < px.length; i += 4) {
+      var g = (px[i] * 299 + px[i + 1] * 587 + px[i + 2] * 114) / 1000 | 0;
+      px[i] = g; count[g]++;
     }
-    return best;
+    // Ignore the darkest and brightest 2 % (shadows, reflections).
+    var lo = 0, hi = 255, sum = 0;
+    while (lo < 255 && (sum += count[lo]) < n * 0.02) lo++;
+    sum = 0;
+    while (hi > 0 && (sum += count[hi]) < n * 0.02) hi--;
+    var range = Math.max(1, hi - lo);
+    for (var j = 0; j < px.length; j += 4) {
+      var v = Math.max(0, Math.min(255, (px[j] - lo) * 255 / range));
+      px[j] = px[j + 1] = px[j + 2] = v;
+    }
+    ctx.putImageData(data, 0, 0);
+    return c;
+  }
+
+  // The part of the photo around the barcode, turned so the barcode is upright and
+  // enlarged so the small print is big enough to read. Labels have their text next to,
+  // above or below the barcode, so a generous area around it is kept.
+  function labelArea(canvas, code) {
+    var p = code.position;
+    var cx = (p.topLeft.x + p.topRight.x + p.bottomLeft.x + p.bottomRight.x) / 4;
+    var cy = (p.topLeft.y + p.topRight.y + p.bottomLeft.y + p.bottomRight.y) / 4;
+    var size = Math.max(10, Math.hypot(p.topRight.x - p.topLeft.x, p.topRight.y - p.topLeft.y));
+    var angle = Math.atan2(p.topRight.y - p.topLeft.y, p.topRight.x - p.topLeft.x);
+    var scale = Math.min(3, 220 / size); // the barcode becomes about 220 pixels wide
+    var w = Math.min(2600, Math.round(size * 11 * scale)), h = Math.min(2200, Math.round(size * 8 * scale));
+    var c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    var ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, w, h);
+    ctx.translate(w / 2, h / 2);
+    ctx.scale(scale, scale);
+    ctx.rotate(-angle);
+    ctx.translate(-cx, -cy);
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(canvas, 0, 0);
+    return c;
+  }
+
+  // The square barcode. Returns { text, position }, with text '' if there is none or it is unreadable.
+  // Very large photos are sometimes harder to read, so a smaller copy is tried as well.
+  async function readDataMatrix(canvas) {
+    if (!window.ZXingWASM) return { text: '' };
+    prepareZxing();
+    var tries = [canvas];
+    if (Math.max(canvas.width, canvas.height) > 1600) tries.push(shrunk(canvas, 1400));
+    for (var i = 0; i < tries.length; i++) {
+      try {
+        var c = tries[i];
+        var data = c.getContext('2d').getImageData(0, 0, c.width, c.height);
+        var results = await ZXingWASM.readBarcodes(data, { formats: ['DataMatrix'], tryHarder: true, maxNumberOfSymbols: 1 });
+        if (results.length && results[0].isValid) {
+          var r = results[0], k = canvas.width / c.width, pos = null;
+          if (r.position && r.position.topLeft) {
+            pos = {};
+            ['topLeft', 'topRight', 'bottomLeft', 'bottomRight'].forEach(function (name) {
+              pos[name] = { x: r.position[name].x * k, y: r.position[name].y * k };
+            });
+          }
+          return { text: r.text, position: pos };
+        }
+      } catch (e) { /* try the next one */ }
+    }
+    return { text: '' };
+  }
+
+  function shrunk(canvas, maxSide) {
+    var scale = maxSide / Math.max(canvas.width, canvas.height);
+    var c = document.createElement('canvas');
+    c.width = Math.round(canvas.width * scale);
+    c.height = Math.round(canvas.height * scale);
+    c.getContext('2d').drawImage(canvas, 0, 0, c.width, c.height);
+    return c;
+  }
+
+  // The printed text. Labels differ, so several versions of the photo are read, best
+  // guess first, until one gives both a model and a S/N. The texts are returned with
+  // the best one first, so parseLabel() takes the model from the clearest reading.
+  async function readText(canvas, code, progress) {
+    var worker = await getOcrWorker();
+    var full = enhanced(shrunk(canvas, Math.min(2400, Math.max(canvas.width, canvas.height))));
+    var angle = tilt(full);
+    if (angle) full = rotated(full, -angle);
+    var area = code.position ? enhanced(labelArea(canvas, code)) : null;
+    var tries = [];
+    if (area) tries.push([area, 0, 3], [area, 0, 11]);
+    tries.push([full, 0, 3], [full, 90, 3], [full, 270, 3], [full, 0, 11], [full, 180, 3]);
+    if (area) tries.push([area, 90, 11], [area, 270, 11]);
+
+    var readings = [];
+    for (var i = 0; i < tries.length; i++) {
+      progress('try ' + (i + 1) + ' of ' + tries.length);
+      var img = tries[i][1] ? rotated(tries[i][0], tries[i][1]) : tries[i][0];
+      await setOcrMode(worker, tries[i][2]);
+      var text = (await worker.recognize(img)).data.text || '';
+      var found = parseLabel(text, code.text);
+      // A model on an "AXIS ..." line counts most, then a full S/N, then lens and frame rate.
+      var score = (found.fromAxisLine ? 4 : found.model ? 1 : 0)
+        + (found.serial.length === 12 ? 2 : 0)
+        + (/mm|fps/.test(found.model) ? 1 : 0);
+      readings.push({ text: text, score: score });
+      if (score >= 7 || (score >= 6 && found.serialFromCode)) break;
+    }
+    readings.sort(function (a, b) { return b.score - a.score; });
+    return readings.map(function (r) { return r.text; }).join('\n');
   }
 
   // ---------- Making sense of what was read ----------
   // Exposed as window.parseSnLabel so it can be tested on its own.
   function parseLabel(text, code) {
-    var lines = String(text || '').split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
-    var model = '', modelFromAxisLine = false, serial = '', serialFromCode = false;
+    var lines = String(text || '').split('\n').map(function (s) {
+      return s.trim().toUpperCase().replace(/[‐‑–—]/g, '-');
+    }).filter(Boolean);
+    var model = '', fromAxisLine = false, fromPart = false;
+    var serial = '', serialFromCode = false, part = '';
 
-    // Model: the word after "AXIS" on the first line, e.g. "AXIS Q1951-E 7mm 30 fps" -> "Q1951-E".
-    // Stored without "AXIS", the same way as the units already in the list.
+    // From the barcode: the S/N (12 characters 0-9/A-F) and the part number (e.g. 02150-001-01).
+    var parts = String(code || '').toUpperCase().split(/[,;\s\x1d]+/);
+    parts.forEach(function (p) {
+      p = p.replace(/^(S\/?N|P\/?N)[:=]?/, '');
+      if (!serial && /^[0-9A-F]{12}$/.test(p) && /[0-9]/.test(p)) { serial = p; serialFromCode = true; }
+      else if (!part && /^\d{5}-\d{3}(-\d{2})?$/.test(p)) part = p;
+    });
+    // Part number from the text, if the barcode did not have it.
+    for (var a = 0; a < lines.length && !part; a++) {
+      var pm = lines[a].match(/P\s*[\/|1lI]\s*N\s*[:;.]?\s*([0-9OIL]{5})\s*-\s*([0-9OIL]{3})(?:\s*-\s*([0-9OIL]{2}))?/);
+      if (pm) part = digits(pm[1]) + '-' + digits(pm[2]) + (pm[3] ? '-' + digits(pm[3]) : '');
+    }
+    // A unit with this part number is already registered: use its model, spelled the same way.
+    var partKey = part.slice(0, 9);
+    if (partKey && knownParts[partKey]) { model = knownParts[partKey]; fromPart = true; }
+
+    // Model: the word after "AXIS", plus lens, frame rate and "Mk II" if they are on the label,
+    // e.g. "AXIS Q1971-E 7 mm 8.3 fps" -> "Q1971-E 7mm 8.3fps". Stored without "AXIS",
+    // the same way as the units already in the list.
     for (var i = 0; i < lines.length && !model; i++) {
-      var line = lines[i].toUpperCase().replace(/[‐‑–—]/g, '-');
-      var m = line.match(/\bAX[I1L|!]S\s+([A-Z]{1,2})\s?([0-9OILSZ]{3,4})([A-Z]?)((?:\s?-\s?[A-Z0-9]{1,5})*)/);
+      var m = lines[i].match(/(?:\bAX[I1L|!]?[S5]|\bXIS)\s*([A-Z]{1,2})\s?([0-9OILSZ]{3,4})([A-Z]?)((?:\s?-\s?[A-Z0-9]{1,5})*)/);
       if (m) {
         model = m[1] + digits(m[2]) + m[3] + m[4].replace(/\s/g, '');
-        var mk = line.match(/\bMK\s?(II|III|IV|2|3)\b/);
-        if (mk) model += ' Mk' + mk[1].replace('2', 'II').replace('3', 'III');
-        modelFromAxisLine = true;
+        var rest = lines[i].slice(m.index + m[0].length);
+        // The lens and frame rate are sometimes on the line below.
+        if (!/MM|FPS/.test(rest) && lines[i + 1] && !/[PS]\s*[\/|1lI]\s*N/.test(lines[i + 1])) rest += ' ' + lines[i + 1];
+        model += details(rest);
+        fromAxisLine = true;
       }
     }
     // No "AXIS" found: take the first thing that looks like a model number.
     for (var j = 0; j < lines.length && !model; j++) {
-      if (/^\s*[PS]\s*[\/|]\s*N/i.test(lines[j])) continue;
-      var m2 = lines[j].toUpperCase().match(/\b([A-Z]{1,2}\d{4}[A-Z]?(?:-[A-Z0-9]{1,5})?)\b/);
-      if (m2) model = m2[1];
+      if (/^\s*[PS]\s*[\/|]\s*N/.test(lines[j])) continue;
+      var m2 = lines[j].match(/\b([A-Z]{1,2}\d{4}[A-Z]?(?:-[A-Z0-9]{1,5})?)\b/);
+      if (m2) model = m2[1] + details(lines[j].slice(m2.index + m2[0].length));
     }
 
-    // S/N from the barcode: the first part, if it is 12 hex characters.
-    var parts = String(code || '').toUpperCase().split(/[,;\s]+/);
-    for (var k = 0; k < parts.length && !serial; k++) {
-      if (/^[0-9A-F]{12}$/.test(parts[k])) { serial = parts[k]; serialFromCode = true; }
+    // S/N from the text, if the barcode could not be read: after "S/N:" or "SN:" ...
+    for (var n = 0; n < lines.length && !serial; n++) {
+      var s = lines[n].match(/\bS\s*[\/|1lI]?\s*N\s*[:;.]?\s*([0-9A-Z| ]{11,16})/);
+      if (s) {
+        var c = cleanSerial(s[1]);
+        if (c.length === 12) serial = c;
+      }
     }
-    // Otherwise from the text after "S/N:".
-    if (!serial) {
-      for (var n = 0; n < lines.length && !serial; n++) {
-        var s = lines[n].match(/S\s*[\/|1lI]\s*N\s*[:;.]?\s*([0-9A-Za-z| ]{11,16})/);
-        if (s) serial = cleanSerial(s[1]);
+    // ... or anywhere, if it starts like an Axis serial number.
+    for (var t = 0; t < lines.length && !serial; t++) {
+      var words = lines[t].split(/[^0-9A-Z]+/);
+      for (var w = 0; w < words.length && !serial; w++) {
+        if (words[w].length < 12 || words[w].length > 13) continue;
+        var cw = cleanSerial(words[w]);
+        if (cw.length === 12 && knownPrefix(cw)) serial = cw;
       }
     }
 
     return {
       model: model,
       serial: serial,
-      // Only save without asking when the S/N came from the barcode (exact)
-      // and the model was found on the "AXIS ..." line.
-      sure: serialFromCode && modelFromAxisLine && /^[A-Z]{1,2}\d{3,4}/.test(model)
+      part: part,
+      fromAxisLine: fromAxisLine,
+      serialFromCode: serialFromCode,
+      // Only save without asking when the S/N came from the barcode (exact) and the
+      // model came from a known part number or was found on the "AXIS ..." line.
+      sure: serialFromCode && (fromPart || (fromAxisLine && /^[A-Z]{1,2}\d{3,4}/.test(model)))
     };
+  }
+
+  // Lens, frame rate and Mk version from the rest of the model line: " 7mm 8.3fps", " MkII".
+  function details(rest) {
+    var out = '';
+    var mm = rest.match(/\b(\d{1,3}(?:[.,]\d)?)\s?MM\b/);
+    if (mm) out += ' ' + mm[1].replace(',', '.') + 'mm';
+    var fps = rest.match(/\b(\d{1,3}(?:[.,]\d{1,2})?)\s?FPS\b/);
+    if (fps) out += ' ' + fps[1].replace(',', '.') + 'fps';
+    var mk = rest.match(/\bMK\s?(II|III|IV|2|3)\b/);
+    if (mk) out += ' Mk' + mk[1].replace('2', 'II').replace('3', 'III');
+    return out;
   }
 
   // Letters that OCR often reads instead of digits.
@@ -337,7 +524,12 @@
       .replace(/G/g, '6').replace(/Q/g, '0').replace(/T/g, '7');
     s = s.replace(/[^0-9A-F]/g, '').slice(0, 12);
     if (s.length !== 12) return s;
-    // Fix the start if it is one B/8 or D/0 mix-up away from a known Axis prefix.
+    return knownPrefix(s) || s;
+  }
+
+  // The serial with its start fixed, if it is one B/8 or D/0 mix-up away from a known
+  // Axis prefix. Returns '' if it does not start like an Axis serial at all.
+  function knownPrefix(s) {
     var start = s.slice(0, 6);
     for (var i = 0; i < AXIS_PREFIXES.length; i++) {
       var p = AXIS_PREFIXES[i], ok = true;
@@ -347,7 +539,46 @@
       }
       if (ok) return p + s.slice(6);
     }
-    return s;
+    return '';
+  }
+
+  // ---------- Seeing a photo large ----------
+  // Click the photo to see it as large as the screen allows; click again to zoom in
+  // to full size where you clicked, and scroll around. Esc, × or the dark area closes it.
+  var viewer = null;
+  function openPhoto(src) {
+    if (!viewer) {
+      viewer = document.createElement('div');
+      viewer.className = 'photo-viewer';
+      viewer.hidden = true;
+      viewer.innerHTML = '<img alt="Label photo, large"><button type="button" class="photo-viewer-close" title="Close (Esc)">×</button>' +
+        '<p class="photo-viewer-hint">Click the photo to zoom in. Esc closes.</p>';
+      document.body.appendChild(viewer);
+      var big = viewer.querySelector('img');
+      viewer.addEventListener('click', function (e) {
+        if (e.target !== big) { closePhoto(); return; }
+        var zoom = !viewer.classList.contains('zoomed');
+        // Where in the photo was clicked, so that spot stays in view after zooming in.
+        var r = big.getBoundingClientRect();
+        var fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+        viewer.classList.toggle('zoomed', zoom);
+        if (zoom) {
+          viewer.scrollLeft = fx * big.offsetWidth - viewer.clientWidth / 2;
+          viewer.scrollTop = fy * big.offsetHeight - viewer.clientHeight / 2;
+        }
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !viewer.hidden) closePhoto();
+      });
+    }
+    viewer.classList.remove('zoomed');
+    viewer.querySelector('img').src = src;
+    viewer.hidden = false;
+    document.body.classList.add('no-scroll');
+  }
+  function closePhoto() {
+    viewer.hidden = true;
+    document.body.classList.remove('no-scroll');
   }
 
   window.parseSnLabel = parseLabel;

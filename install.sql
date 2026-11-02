@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS units (
   id            INT AUTO_INCREMENT PRIMARY KEY,
   model         VARCHAR(100) NOT NULL,
   serial_number VARCHAR(100) NOT NULL UNIQUE,
+  part_number   VARCHAR(30) NULL,
   asset_tag     VARCHAR(100) NULL,
   status        ENUM('available','in_repair','retired') NOT NULL DEFAULT 'available',
   notes         TEXT NULL,

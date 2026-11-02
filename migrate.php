@@ -99,4 +99,10 @@ if (!column_exists('salespeople', 'notes')) {
     echo "Added salespeople.notes\n"; $done++;
 }
 
+// November 2026: part number (P/N) on units, read from label photos.
+if (!column_exists('units', 'part_number')) {
+    q('ALTER TABLE units ADD COLUMN part_number VARCHAR(30) NULL AFTER serial_number');
+    echo "Added units.part_number\n"; $done++;
+}
+
 echo $done ? "Database upgraded ($done change" . ($done === 1 ? '' : 's') . ").\n" : "Database already up to date.\n";
