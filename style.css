@@ -103,3 +103,21 @@ main { position: relative; }
   p.empty { padding-top: 56px; background-size: 140px 50px; }
 }
 @media (max-width: 420px) { .title-art { display: none; } }
+/* ---------- Axis logo + menu bar that stays at the top ----------
+   The menu bar is "sticky": it scrolls with the page until it reaches
+   the top of the window, then stays there. */
+header { position: sticky; top: 0; z-index: 50; box-shadow: 0 2px 6px rgba(0,0,0,.18); }
+.axis-logo { display: block; height: 30px; width: auto; flex: none; }
+.brand-sep { width: 1px; height: 26px; background: rgba(255,255,255,.3); margin: 0 4px; flex: none; }
+.brand .logo, .brand .site-name { flex: none; }
+/* Phones: smaller logo, the menu in one row you can swipe sideways,
+   and a lower fence strip, so the fixed bar does not take up the screen */
+@media (max-width: 700px) {
+  header { padding-bottom: 16px; background-size: auto 18px; }
+  header .wrap { padding: 8px 16px; row-gap: 6px; }
+  .axis-logo { height: 24px; }
+  .brand-sep { height: 20px; }
+  .brand { font-size: 15px; gap: 6px; }
+  nav { flex-wrap: nowrap; overflow-x: auto; width: 100%; padding-bottom: 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  nav::-webkit-scrollbar { display: none; }
+}

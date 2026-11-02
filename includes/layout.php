@@ -14,7 +14,11 @@ function page_header(string $title, ?array $user = null): void
     $logo = '<svg class="logo" width="26" height="18" viewBox="0 0 26 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
         . '<path d="M1 2v8h4"/><g transform="rotate(12 14 8)"><rect x="5" y="4" width="18" height="8" rx="2"/><path d="M3 2.5h22"/>'
         . '<circle cx="21" cy="8" r="1.4" fill="currentColor"/></g><circle cx="8.5" cy="7.5" r="1" fill="#5ee08a" stroke="none"/></svg>';
-    echo "<header><div class=\"wrap\"><a class=\"brand\" href=\"index.php\">$logo$site</a>";
+    // Axis logo (white text version made for the dark menu bar), then a thin line,
+    // then the camera icon and the site name. All of it links to the overview.
+    $axis = '<img class="axis-logo" src="img/axis-logo.png" width="82" height="30" alt="Axis Communications">'
+        . '<span class="brand-sep" aria-hidden="true"></span>';
+    echo "<header><div class=\"wrap\"><a class=\"brand\" href=\"index.php\">$axis$logo<span class=\"site-name\">$site</span></a>";
     if ($user) {
         echo '<nav>'
             . '<a href="index.php">Overview</a>'
