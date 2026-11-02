@@ -292,17 +292,14 @@ page_header('E-mail', $user);
 ?>
 <p>These are all the emails the tracker sends. Click one to change its subject or text.
 Changes are used from the next email that is sent.</p>
-<table>
-  <tr><th>Email</th><th>When it is sent</th><th>Subject</th><th>Text</th></tr>
+<table class="email-list">
+  <tr><th>Email</th><th>When it is sent</th><th>Subject</th></tr>
   <?php foreach ($templates as $c => $default):
       $t = get_template($c); ?>
   <tr>
     <td><a href="emails.php?code=<?= h($c) ?>"><b><?= h($t['name']) ?></b></a></td>
     <td><small><?= h($t['about']) ?></small></td>
     <td><?= h($t['subject']) ?></td>
-    <td><?= $t['edited']
-        ? '<span class="badge orange">Edited</span><br><small>' . h(date('j M Y', strtotime($t['updated_at']))) . '</small>'
-        : '<span class="badge grey">Standard</span>' ?></td>
   </tr>
   <?php endforeach; ?>
 </table>
