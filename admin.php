@@ -205,7 +205,7 @@ page_header('Admin', $user);
   <?php endforeach; ?>
 </table>
 <?php else: ?>
-<p class="muted">No units are out right now.</p>
+<p class="muted empty">No units are out right now.</p>
 <?php endif; ?>
 
 <h2>Email settings</h2>

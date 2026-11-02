@@ -112,5 +112,5 @@ page_header('Units', $user);
   </tr>
   <?php endforeach; ?>
 </table>
-<?php if (!$units) echo '<p class="muted">No units yet. Add your first one above.</p>';
+<?php if (!$units) echo '<p class="muted empty">No units yet. Add your first one above.</p>';
 page_footer();

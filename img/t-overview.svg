@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="72" viewBox="0 0 200 72" fill="none" stroke="#7f8ca3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <!-- dome camera in the ceiling corner -->
+  <path d="M8 6h34"/>
+  <path d="M16 6v4h18V6"/>
+  <path d="M17 10a8 8 0 0 0 16 0" fill="#eef2f8"/>
+  <circle cx="25" cy="13" r="2.2" fill="#7f8ca3" fill-opacity=".35"/>
+  <path d="M33 8C50 8 48 30 62 30" stroke-dasharray="2 3" stroke-opacity=".7"/>
+  <!-- monitor with four camera views -->
+  <rect x="62" y="10" width="64" height="42" rx="3" fill="#eef2f8"/>
+  <path d="M94 10v42M62 31h64" stroke-opacity=".55"/>
+  <path d="M66 27l7-7 5 4 6-6 7 9" stroke-opacity=".7"/>
+  <path d="M98 27v-8h10v8M112 27v-5h10v5" stroke-opacity=".7"/>
+  <circle cx="78" cy="40" r="3" stroke-opacity=".7"/><path d="M72 49a6 6 0 0 1 12 0" stroke-opacity=".7"/>
+  <path d="M98 48l8-10 6 6 4-3 6 7" stroke-opacity=".7"/>
+  <circle cx="120" cy="14" r="1.3" fill="#e05a4f" stroke="none"/>
+  <path d="M94 52v10M84 64h20"/>
+  <!-- cable to a bullet camera -->
+  <path d="M126 46c14 0 14-22 30-22" stroke-dasharray="2 3" stroke-opacity=".7"/>
+  <path d="M190 14v12h-8"/>
+  <g transform="rotate(16 170 24)">
+    <rect x="156" y="19" width="26" height="11" rx="3" fill="#eef2f8"/>
+    <path d="M153 17h31"/>
+    <circle cx="157" cy="24.5" r="2.2" fill="#7f8ca3" fill-opacity=".35"/>
+  </g>
+</svg>

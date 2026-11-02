@@ -43,5 +43,5 @@ page_header('Loans', $user);
   </tr>
   <?php endforeach; ?>
 </table>
-<?php if (!$loans) echo '<p class="muted">No loans match this filter.</p>';
+<?php if (!$loans) echo '<p class="muted empty">No loans match this filter.</p>';
 page_footer();

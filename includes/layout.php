@@ -7,8 +7,14 @@ function page_header(string $title, ?array $user = null): void
     echo "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">";
     echo '<meta name="viewport" content="width=device-width, initial-scale=1">';
     echo '<title>' . h($title) . " · $site</title>";
-    echo '<link rel="stylesheet" href="style.css"></head><body>';
-    echo "<header><div class=\"wrap\"><a class=\"brand\" href=\"index.php\">$site</a>";
+    echo '<link rel="stylesheet" href="style.css"></head>';
+    $page = basename($_SERVER['SCRIPT_NAME'] ?? '', '.php');
+    echo '<body class="page-' . h($page) . ($user ? '' : ' auth') . '">';
+    // Small camera icon in front of the site name.
+    $logo = '<svg class="logo" width="26" height="18" viewBox="0 0 26 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+        . '<path d="M1 2v8h4"/><g transform="rotate(12 14 8)"><rect x="5" y="4" width="18" height="8" rx="2"/><path d="M3 2.5h22"/>'
+        . '<circle cx="21" cy="8" r="1.4" fill="currentColor"/></g><circle cx="8.5" cy="7.5" r="1" fill="#5ee08a" stroke="none"/></svg>';
+    echo "<header><div class=\"wrap\"><a class=\"brand\" href=\"index.php\">$logo$site</a>";
     if ($user) {
         echo '<nav>'
             . '<a href="index.php">Overview</a>'
@@ -29,10 +35,26 @@ function page_header(string $title, ?array $user = null): void
         echo '<div class="flash ' . h($f['type']) . '">' . h($f['msg']) . '</div>';
     }
     unset($_SESSION['flash']);
-    echo '<h1>' . h($title) . '</h1>';
+    // The page title, with a small line drawing on the right that matches the page.
+    echo '<div class="page-title"><h1>' . h($title) . '</h1>'
+        . '<span class="title-art art-' . title_art($page) . '" aria-hidden="true"></span></div>';
+}
+
+// Which drawing (img/t-*.svg) goes next to the title on each page.
+function title_art(string $page): string
+{
+    $map = [
+        'index' => 'overview', 'users' => 'overview', 'profile' => 'overview',
+        'units' => 'units',
+        'loans' => 'loans', 'loan_edit' => 'loans',
+        'people' => 'people', 'people_import' => 'people',
+        'admin' => 'admin', 'emails' => 'admin',
+    ];
+    return $map[$page] ?? 'units';
 }
 
 function page_footer(): void
 {
-    echo '</main></body></html>';
+    // A quiet fence-and-cameras scene along the bottom of every page.
+    echo '</main><footer class="scene" aria-hidden="true"></footer></body></html>';
 }

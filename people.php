@@ -90,5 +90,5 @@ page_header('Salespeople', $user);
   </tr>
   <?php endforeach; ?>
 </table>
-<?php if (!$people) echo '<p class="muted">No salespeople yet.</p>';
+<?php if (!$people) echo '<p class="muted empty">No salespeople yet.</p>';
 page_footer();

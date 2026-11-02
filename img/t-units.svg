@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="72" viewBox="0 0 200 72" fill="none" stroke="#7f8ca3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <!-- wall -->
+  <path d="M14 4v64" stroke-opacity=".5"/>
+  <!-- bullet camera on wall bracket -->
+  <path d="M14 22h12v8"/>
+  <g transform="rotate(14 46 32)">
+    <rect x="24" y="26" width="42" height="15" rx="4" fill="#eef2f8"/>
+    <path d="M20 23h50"/>
+    <circle cx="64" cy="33.5" r="3.4" fill="#7f8ca3" fill-opacity=".35"/>
+    <path d="M30 34h18" stroke-opacity=".4"/>
+  </g>
+  <path d="M26 30c-2 14 6 20-10 30" stroke-dasharray="2 3" stroke-opacity=".7"/>
+  <!-- dome camera -->
+  <path d="M96 52h44" stroke-opacity=".5"/>
+  <path d="M101 52h34v-6h-34z" fill="#eef2f8"/>
+  <path d="M104 46a14 14 0 0 1 28 0" fill="#eef2f8"/>
+  <circle cx="118" cy="40" r="4" fill="#7f8ca3" fill-opacity=".35"/>
+  <!-- PTZ camera -->
+  <path d="M166 4v10M156 14h20v5h-20z" fill="#eef2f8"/>
+  <path d="M158 19h16v6a8 8 0 0 1-16 0z" fill="#eef2f8"/>
+  <circle cx="166" cy="26" r="3" fill="#7f8ca3" fill-opacity=".35"/>
+  <circle cx="171" cy="16.5" r="1.2" fill="#3fb36b" stroke="none"/>
+</svg>
