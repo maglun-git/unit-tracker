@@ -225,5 +225,5 @@ foreach (q('SELECT part_number, model FROM units WHERE part_number IS NOT NULL O
 <script>window.KNOWN_PARTS = <?= json_encode($knownParts, JSON_HEX_TAG | JSON_HEX_AMP) ?: '{}' ?>;</script>
 <script src="vendor/tesseract/tesseract.min.js"></script>
 <script src="vendor/zxing/zxing-reader.js"></script>
-<script src="js/label-scan.js"></script>
+<script src="js/label-scan.js?v=<?= filemtime(__DIR__ . '/js/label-scan.js') ?>"></script>
 <?php page_footer();

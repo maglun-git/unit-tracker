@@ -306,33 +306,45 @@
     return Math.abs(best) < 1 ? 0 : best;
   }
 
-  // A grey copy with the contrast stretched, so faint or greyish print stands out.
-  function enhanced(canvas) {
+  // A black-and-white copy for the OCR. Axis labels are often grey stickers on lighter
+  // plastic; one threshold for the whole photo (what Tesseract does by itself) then turns
+  // the whole sticker black. Here each pixel is compared with its own surroundings instead:
+  // it becomes black only if it is clearly darker than the area around it, which keeps
+  // the print and drops grey stickers, shadows and uneven light.
+  function blackAndWhite(canvas) {
+    var w = canvas.width, h = canvas.height;
+    var px = canvas.getContext('2d').getImageData(0, 0, w, h).data;
+    var g = new Float32Array(w * h);
+    for (var i = 0; i < w * h; i++) g[i] = px[i * 4] * 0.299 + px[i * 4 + 1] * 0.587 + px[i * 4 + 2] * 0.114;
+    // Running sums, so the average of any rectangle is quick to get.
+    var W = w + 1, sum = new Float64Array(W * (h + 1));
+    for (var y = 0; y < h; y++) {
+      var row = 0;
+      for (var x = 0; x < w; x++) {
+        row += g[y * w + x];
+        sum[(y + 1) * W + x + 1] = sum[y * W + x + 1] + row;
+      }
+    }
+    var r = Math.max(8, Math.round(Math.max(w, h) / 60));
     var c = document.createElement('canvas');
-    c.width = canvas.width; c.height = canvas.height;
-    var ctx = c.getContext('2d');
-    ctx.drawImage(canvas, 0, 0);
-    var data = ctx.getImageData(0, 0, c.width, c.height), px = data.data;
-    var count = new Array(256).fill(0), n = px.length / 4;
-    for (var i = 0; i < px.length; i += 4) {
-      var g = (px[i] * 299 + px[i + 1] * 587 + px[i + 2] * 114) / 1000 | 0;
-      px[i] = g; count[g]++;
+    c.width = w; c.height = h;
+    var ctx = c.getContext('2d'), out = ctx.createImageData(w, h), o = out.data;
+    for (var y2 = 0; y2 < h; y2++) {
+      var y0 = Math.max(0, y2 - r), y1 = Math.min(h, y2 + r + 1);
+      for (var x2 = 0; x2 < w; x2++) {
+        var x0 = Math.max(0, x2 - r), x1 = Math.min(w, x2 + r + 1);
+        var area = sum[y1 * W + x1] - sum[y0 * W + x1] - sum[y1 * W + x0] + sum[y0 * W + x0];
+        var mean = area / ((x1 - x0) * (y1 - y0));
+        var k = (y2 * w + x2) * 4;
+        o[k] = o[k + 1] = o[k + 2] = g[y2 * w + x2] < mean * 0.8 ? 0 : 255;
+        o[k + 3] = 255;
+      }
     }
-    // Ignore the darkest and brightest 2 % (shadows, reflections).
-    var lo = 0, hi = 255, sum = 0;
-    while (lo < 255 && (sum += count[lo]) < n * 0.02) lo++;
-    sum = 0;
-    while (hi > 0 && (sum += count[hi]) < n * 0.02) hi--;
-    var range = Math.max(1, hi - lo);
-    for (var j = 0; j < px.length; j += 4) {
-      var v = Math.max(0, Math.min(255, (px[j] - lo) * 255 / range));
-      px[j] = px[j + 1] = px[j + 2] = v;
-    }
-    ctx.putImageData(data, 0, 0);
+    ctx.putImageData(out, 0, 0);
     return c;
   }
 
-  // The part of the photo around the barcode, turned so the barcode is upright and
+  // The part of the photo around the barcode, turned straight and
   // enlarged so the small print is big enough to read. Labels have their text next to,
   // above or below the barcode, so a generous area around it is kept.
   function labelArea(canvas, code) {
@@ -340,7 +352,10 @@
     var cx = (p.topLeft.x + p.topRight.x + p.bottomLeft.x + p.bottomRight.x) / 4;
     var cy = (p.topLeft.y + p.topRight.y + p.bottomLeft.y + p.bottomRight.y) / 4;
     var size = Math.max(10, Math.hypot(p.topRight.x - p.topLeft.x, p.topRight.y - p.topLeft.y));
+    // Only the small tilt is undone: the barcode may be printed turned a quarter or half
+    // turn compared with the text, so the text may still need turning (tried later).
     var angle = Math.atan2(p.topRight.y - p.topLeft.y, p.topRight.x - p.topLeft.x);
+    angle -= Math.round(angle / (Math.PI / 2)) * (Math.PI / 2);
     var scale = Math.min(3, 220 / size); // the barcode becomes about 220 pixels wide
     var w = Math.min(2600, Math.round(size * 11 * scale)), h = Math.min(2200, Math.round(size * 8 * scale));
     var c = document.createElement('canvas');
@@ -398,13 +413,15 @@
   // the best one first, so parseLabel() takes the model from the clearest reading.
   async function readText(canvas, code, progress) {
     var worker = await getOcrWorker();
-    var full = enhanced(shrunk(canvas, Math.min(2400, Math.max(canvas.width, canvas.height))));
-    var angle = tilt(full);
-    if (angle) full = rotated(full, -angle);
-    var area = code.position ? enhanced(labelArea(canvas, code)) : null;
-    var tries = [];
-    if (area) tries.push([area, 0, 3], [area, 0, 11]);
-    tries.push([full, 0, 3], [full, 90, 3], [full, 270, 3], [full, 0, 11], [full, 180, 3]);
+    var photo = shrunk(canvas, Math.min(2400, Math.max(canvas.width, canvas.height)));
+    var angle = tilt(photo);
+    if (angle) photo = rotated(photo, -angle);
+    var full = blackAndWhite(photo);
+    var area = code.position ? blackAndWhite(labelArea(canvas, code)) : null;
+    // [image, quarter turns in degrees, Tesseract layout mode], most likely to work first.
+    var tries = [[full, 0, 3], [full, 0, 11]];
+    if (area) tries.push([area, 0, 3]);
+    tries.push([photo, 0, 11], [full, 90, 3], [full, 270, 3], [full, 180, 3]);
     if (area) tries.push([area, 90, 11], [area, 270, 11]);
 
     var readings = [];
@@ -417,7 +434,7 @@
       // A model on an "AXIS ..." line counts most, then a full S/N, then lens and frame rate.
       var score = (found.fromAxisLine ? 4 : found.model ? 1 : 0)
         + (found.serial.length === 12 ? 2 : 0)
-        + (/mm|fps/.test(found.model) ? 1 : 0);
+        + (/mm|fps|Mk/.test(found.model) ? 1 : 0);
       readings.push({ text: text, score: score });
       if (score >= 7 || (score >= 6 && found.serialFromCode)) break;
     }
@@ -508,8 +525,9 @@
     if (mm) out += ' ' + mm[1].replace(',', '.') + 'mm';
     var fps = rest.match(/\b(\d{1,3}(?:[.,]\d{1,2})?)\s?FPS\b/);
     if (fps) out += ' ' + fps[1].replace(',', '.') + 'fps';
-    var mk = rest.match(/\bMK\s?(II|III|IV|2|3)\b/);
-    if (mk) out += ' Mk' + mk[1].replace('2', 'II').replace('3', 'III');
+    // "II" is often read as "IL", "Il" or "11".
+    var mk = rest.match(/\bMK\s?(III|IV|[IL1]{2}|2|3)\b/);
+    if (mk) out += ' Mk' + (mk[1] === 'III' || mk[1] === '3' ? 'III' : mk[1] === 'IV' ? 'IV' : 'II');
     return out;
   }
 
