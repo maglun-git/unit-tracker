@@ -13,8 +13,9 @@ and POC cameras you lend to salespeople, and emails reminders automatically.
   serial comes from the square barcode on the label, which is exact; the model
   is read from the printed text (OCR). If something is unclear, you get a
   short form to check the values before saving. A serial number that is
-  already registered is refused. Everything runs in the browser, so the web
-  host needs nothing extra.
+  already registered is refused. You can pick several photos at once, or drag
+  photos onto the Units page: each photo becomes its own unit. Everything runs
+  in the browser, so the web host needs nothing extra.
 - **Salespeople**: the people you send units to. They do not log in; they just
   get emails.
 - **Loans**: "send out a unit" to a salesperson with a due date. Change the due

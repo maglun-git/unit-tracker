@@ -142,7 +142,26 @@ header { position: sticky; top: 0; z-index: 50; box-shadow: 0 2px 6px rgba(0,0,0
 /* Units page: "Upload SN label photo" */
 .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 label.photo-button { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-size: 15px; }
-.scan-panel img { display: block; max-width: 100%; max-height: 220px; margin: 0 auto 12px; border-radius: 6px; object-fit: contain; }
+.drop-hint { font-size: 14px; }
+@media (hover: none) { .drop-hint { display: none; } } /* phones: no dragging */
+.scan-panel { max-width: 760px; }
+.scan-item { display: grid; grid-template-columns: 140px 1fr auto; gap: 14px; align-items: start; padding: 12px 0; border-top: 1px solid #e7eaf0; }
+.scan-item img { width: 140px; height: 105px; object-fit: cover; border-radius: 6px; background: #1d2433; }
+.scan-item label { margin-bottom: 6px; }
+.scan-item-status { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: #6b7385; }
+.scan-item.ok .scan-item-status { color: #1e7b3a; }
+.scan-item.warn { background: #fff7ec; margin: 0 -20px; padding: 12px 20px; }
+.scan-item.warn .scan-item-status { color: #a35a00; }
+.scan-item.busy input { opacity: .5; }
+#scan-buttons { padding-top: 12px; border-top: 1px solid #e7eaf0; }
+.drop-overlay { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: rgba(26,95,208,.12); border: 4px dashed #1a5fd0; pointer-events: none; }
+.drop-overlay div { background: #fff; padding: 24px 32px; border-radius: 10px; font-size: 20px; font-weight: 700; text-align: center; box-shadow: 0 6px 24px rgba(0,0,0,.15); }
+@media (max-width: 560px) {
+  .scan-item { grid-template-columns: 90px 1fr; }
+  .scan-item img { width: 90px; height: 70px; }
+  .scan-remove { grid-column: 2; justify-self: start; }
+  .scan-item.warn { margin: 0 -16px; padding: 12px 16px; }
+}
 .scan-status { margin: 0 0 12px; font-weight: 600; }
 .scan-status.busy { color: #4a5468; }
 .scan-status.busy::before { content: ""; display: inline-block; width: 14px; height: 14px; margin-right: 8px; vertical-align: -2px; border: 2px solid #c9cfda; border-top-color: #1a5fd0; border-radius: 50%; animation: spin .8s linear infinite; }

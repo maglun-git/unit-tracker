@@ -1,12 +1,14 @@
 // "Upload SN label photo" on the Units page.
 //
+// Photos can be chosen with the button (several at once) or dragged onto the page.
 // Everything happens in the browser, so nothing extra is needed on the web host:
 //   1. The square barcode on the label (a DataMatrix) is read with ZXing.
 //      On Axis labels it starts with the serial number, e.g. "B8A44F27ACF5,02150-001-01,...".
 //   2. The printed text is read with Tesseract (OCR) to find the model ("AXIS Q1951-E ...").
 //      If the barcode could not be read, the S/N is taken from the text instead.
-//   3. If both were found with certainty, the unit is saved straight away.
-//      Otherwise the form is shown so the user can check or fix the values first.
+//   3. Each photo becomes one row (one unit). If every row was read with certainty,
+//      all units are saved straight away. Otherwise the rows are shown so the user
+//      can check or fix them, then press "Save all".
 // The libraries live in vendor/ (copied from npm), so no outside website is used.
 (function () {
   'use strict';
@@ -17,10 +19,9 @@
   var panel = document.getElementById('scan-panel');
   var form = document.getElementById('scan-form');
   var statusBox = document.getElementById('scan-status');
-  var preview = document.getElementById('scan-preview');
-  var modelField = form.elements.model;
-  var serialField = form.elements.serial_number;
-  var fields = document.getElementById('scan-fields');
+  var list = document.getElementById('scan-items');
+  var buttons = document.getElementById('scan-buttons');
+  var overlay = document.getElementById('drop-overlay');
   var vendor = new URL('vendor/', location.href).href;
 
   // Known start of Axis serial numbers (the serial is the camera's network MAC address).
@@ -51,21 +52,50 @@
       zxingReady = true;
     }
   }
+  function warmUp() { prepareZxing(); getOcrWorker(); }
 
-  // Start loading as soon as the button is pressed, while the camera is open.
-  document.querySelector('label[for="label-photo"]').addEventListener('click', function () {
-    prepareZxing();
-    getOcrWorker();
-  });
+  // Start loading as soon as the button is pressed, while the camera or file picker is open.
+  document.querySelector('label[for="label-photo"]').addEventListener('click', warmUp);
 
   input.addEventListener('change', function () {
-    var file = input.files && input.files[0];
-    if (file) scan(file);
+    addFiles(input.files);
+    input.value = ''; // so the same photo can be chosen again later
+  });
+
+  // ---------- Drag and drop: photos dropped anywhere on the page ----------
+  var dragDepth = 0;
+  function hasFiles(e) {
+    return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') !== -1;
+  }
+  document.addEventListener('dragenter', function (e) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragDepth++;
+    overlay.hidden = false;
+    warmUp();
+  });
+  document.addEventListener('dragover', function (e) {
+    if (!hasFiles(e)) return;
+    e.preventDefault(); // needed, otherwise the browser just opens the photo
+    e.dataTransfer.dropEffect = 'copy';
+  });
+  document.addEventListener('dragleave', function (e) {
+    if (!hasFiles(e)) return;
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (!dragDepth) overlay.hidden = true;
+  });
+  document.addEventListener('drop', function (e) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragDepth = 0;
+    overlay.hidden = true;
+    addFiles(e.dataTransfer.files);
   });
 
   document.getElementById('scan-cancel').addEventListener('click', function () {
+    queue = [];
+    list.innerHTML = '';
     panel.hidden = true;
-    input.value = '';
   });
 
   function say(text, kind) {
@@ -73,41 +103,118 @@
     statusBox.className = 'scan-status' + (kind ? ' ' + kind : '');
   }
 
-  // ---------- The main flow ----------
-  async function scan(file) {
-    panel.hidden = false;
-    fields.hidden = true;
-    modelField.value = '';
-    serialField.value = '';
-    preview.src = URL.createObjectURL(file);
-    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    say('Reading the label… (the first time takes a few extra seconds)', 'busy');
+  // ---------- One row per photo ----------
+  var queue = [];      // rows still waiting to be read
+  var busy = false;
 
+  function addFiles(fileList) {
+    var files = Array.prototype.filter.call(fileList || [], function (f) {
+      return /^image\//.test(f.type) || /\.(jpe?g|png|heic|heif|webp|gif|bmp)$/i.test(f.name);
+    });
+    if (!files.length) {
+      if (fileList && fileList.length) alert('Only photos (JPG, PNG and so on) can be used.');
+      return;
+    }
+    panel.hidden = false;
+    buttons.hidden = true;
+    files.forEach(function (file) { queue.push(makeRow(file)); });
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (!busy) work();
+  }
+
+  function makeRow(file) {
+    var row = document.createElement('div');
+    row.className = 'scan-item busy';
+    row.innerHTML =
+      '<img alt="Label photo">' +
+      '<div class="scan-item-fields">' +
+      '  <p class="scan-item-status">Waiting…</p>' +
+      '  <label>Model <input name="model[]" list="known-models" placeholder="e.g. Q1951-E" autocapitalize="characters"></label>' +
+      '  <label>Serial number (S/N) <input name="serial_number[]" placeholder="e.g. B8A44F27ACF5" autocapitalize="characters" autocomplete="off" spellcheck="false"></label>' +
+      '</div>' +
+      '<button type="button" class="link scan-remove" title="Do not add this one">Remove</button>';
+    row.querySelector('img').src = URL.createObjectURL(file);
+    row.querySelector('.scan-remove').addEventListener('click', function () {
+      queue = queue.filter(function (r) { return r !== row; });
+      row.remove();
+      if (!list.children.length) panel.hidden = true;
+      else if (!busy) finish();
+    });
+    row.file = file;
+    list.appendChild(row);
+    return row;
+  }
+
+  async function work() {
+    busy = true;
+    while (queue.length) {
+      var row = queue.shift();
+      var total = list.children.length;
+      var number = Array.prototype.indexOf.call(list.children, row) + 1;
+      say('Reading photo ' + number + ' of ' + total + '… (the first time takes a few extra seconds)', 'busy');
+      await readRow(row);
+    }
+    busy = false;
+    finish();
+  }
+
+  async function readRow(row) {
+    var status = row.querySelector('.scan-item-status');
+    var model = row.querySelector('[name="model[]"]');
+    var serial = row.querySelector('[name="serial_number[]"]');
+    status.textContent = 'Reading…';
     try {
-      var canvas = await photoToCanvas(file, 2400);
+      var canvas = await photoToCanvas(row.file, 2400);
       var code = await readDataMatrix(canvas);
       var text = await readText(canvas);
       var found = parseLabel(text, code);
-
-      modelField.value = found.model;
-      serialField.value = found.serial;
-
-      if (found.sure) {
-        say('Found ' + found.model + ', S/N ' + found.serial + '. Saving…', 'ok');
-        form.submit();
-        return;
-      }
-      fields.hidden = false;
-      if (!found.model && !found.serial) {
-        say('Could not read the label. Type the model and S/N, or try a sharper photo taken straight on.', 'warn');
-      } else {
-        say('Please check the values below (the photo was not fully clear), then press Save.', 'warn');
-      }
-      (found.model ? serialField : modelField).focus();
+      model.value = found.model;
+      serial.value = found.serial;
+      row.readSure = found.sure;
+      status.textContent = found.sure ? 'Read OK'
+        : (!found.model && !found.serial ? 'Could not read the label. Type the values or remove the row.'
+        : 'Please check: the photo was not fully clear.');
     } catch (err) {
-      fields.hidden = false;
-      say('Could not read the photo (' + (err && err.message ? err.message : err) + '). Type the values instead.', 'warn');
+      row.readSure = false;
+      status.textContent = 'Could not read the photo (' + (err && err.message ? err.message : err) + ').';
     }
+    row.classList.remove('busy');
+    row.classList.add(row.readSure ? 'ok' : 'warn');
+  }
+
+  // All photos read: save straight away if everything is certain, otherwise let the user check.
+  function finish() {
+    var rows = Array.prototype.slice.call(list.children);
+    if (!rows.length) return;
+    // The same serial twice in this batch is suspicious, so those rows need a look.
+    var seen = {};
+    rows.forEach(function (r) { r.sure = !!r.readSure; });
+    rows.forEach(function (r) {
+      var s = r.querySelector('[name="serial_number[]"]').value.toUpperCase();
+      if (s && seen[s]) {
+        [r, seen[s]].forEach(function (x) {
+          x.sure = false; x.classList.remove('ok'); x.classList.add('warn');
+          x.querySelector('.scan-item-status').textContent = 'Same S/N as another photo. Remove one of them.';
+        });
+      }
+      seen[s] = r;
+    });
+    rows.forEach(function (r) {
+      r.querySelectorAll('input').forEach(function (i) { i.required = true; });
+    });
+    var unsure = rows.filter(function (r) { return !r.sure; }).length;
+    if (!unsure) {
+      say(rows.length === 1 ? 'Label read. Saving…' : 'All ' + rows.length + ' labels read. Saving…', 'ok');
+      form.submit();
+      return;
+    }
+    buttons.hidden = false;
+    document.getElementById('scan-save').textContent = rows.length === 1 ? 'Save' : 'Save all ' + rows.length;
+    say(unsure === 1 && rows.length === 1
+      ? 'Please check the values below, then press Save.'
+      : unsure + ' of ' + rows.length + ' photos need a check (marked in orange). Fix or remove them, then press Save all.', 'warn');
+    var first = list.querySelector('.scan-item.warn input');
+    if (first) first.focus();
   }
 
   // Draw the photo onto a canvas, made smaller if needed (phone photos are huge).
