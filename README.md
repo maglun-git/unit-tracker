@@ -7,6 +7,14 @@ and POC cameras you lend to salespeople, and emails reminders automatically.
 
 - **Units**: register each camera (model, serial number, asset tag). See where
   every unit is right now, and its full loan history.
+- **Upload SN label photo** (on the Units page): take a photo of the label on a
+  camera (or pick a photo file). The page reads the model (e.g. `Q1951-E`) and
+  the serial number, saves the unit and shows it at the top of the list. The
+  serial comes from the square barcode on the label, which is exact; the model
+  is read from the printed text (OCR). If something is unclear, you get a
+  short form to check the values before saving. A serial number that is
+  already registered is refused. Everything runs in the browser, so the web
+  host needs nothing extra.
 - **Salespeople**: the people you send units to. They do not log in; they just
   get emails.
 - **Loans**: "send out a unit" to a salesperson with a due date. Change the due
@@ -53,6 +61,8 @@ and POC cameras you lend to salespeople, and emails reminders automatically.
 | `users.php` | List of team logins and changing your own password. |
 | `cron.php` | The reminder script your host runs once a day. |
 | `includes/` | Shared code: database connection, email sending, email templates (`templates.php`, with the standard texts), reminder rules, page layout. |
+| `js/label-scan.js` | Reads the label photo on the Units page. |
+| `vendor/` | Ready-made libraries used by the label reader: Tesseract.js 6.0.1 (text reading, with English language data) and zxing-wasm 2.2.4 (barcode reading). Copied from npm, Apache 2.0 / MIT licences inside. |
 | `style.css` | The look of the pages. |
 | `.htaccess` | Stops browsers from opening `config.php` and other private files. |
 

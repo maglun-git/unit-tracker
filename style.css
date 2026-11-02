@@ -139,3 +139,16 @@ header { position: sticky; top: 0; z-index: 50; box-shadow: 0 2px 6px rgba(0,0,0
   nav { flex-wrap: nowrap; overflow-x: auto; width: 100%; padding-bottom: 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   nav::-webkit-scrollbar { display: none; }
 }
+/* Units page: "Upload SN label photo" */
+.actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+label.photo-button { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-size: 15px; }
+.scan-panel img { display: block; max-width: 100%; max-height: 220px; margin: 0 auto 12px; border-radius: 6px; object-fit: contain; }
+.scan-status { margin: 0 0 12px; font-weight: 600; }
+.scan-status.busy { color: #4a5468; }
+.scan-status.busy::before { content: ""; display: inline-block; width: 14px; height: 14px; margin-right: 8px; vertical-align: -2px; border: 2px solid #c9cfda; border-top-color: #1a5fd0; border-radius: 50%; animation: spin .8s linear infinite; }
+.scan-status.ok { color: #1e7b3a; }
+.scan-status.warn { color: #a35a00; }
+@keyframes spin { to { transform: rotate(360deg); } }
+tr.just-added td { background: #fff8d6; animation: just-added 3s ease-out 1s forwards; }
+@keyframes just-added { to { background: #fff; } }
+@media (max-width: 700px) { .actions .button { flex: 1 1 auto; text-align: center; justify-content: center; } }

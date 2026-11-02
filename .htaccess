@@ -3,3 +3,5 @@
   Require all denied
 </FilesMatch>
 Options -Indexes
+# The barcode reader (vendor/zxing) needs .wasm files sent with the right type.
+AddType application/wasm .wasm
