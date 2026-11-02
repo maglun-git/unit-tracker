@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="72" viewBox="0 0 200 72" fill="none" stroke="#7f8ca3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <!-- open shipping box -->
+  <path d="M30 34l28-10 28 10-28 10z" fill="#eef2f8"/>
+  <path d="M30 34v22l28 10 28-10V34M58 44v22"/>
+  <path d="M30 34l-10 10 28 10 10-10M86 34l10 10-28 10" stroke-opacity=".6"/>
+  <!-- camera coming out -->
+  <g transform="rotate(-24 70 20)">
+    <rect x="52" y="14" width="34" height="12" rx="3" fill="#fff"/>
+    <path d="M49 12h40"/>
+    <circle cx="84" cy="20" r="2.6" fill="#7f8ca3" fill-opacity=".35"/>
+  </g>
+  <!-- cable coil -->
+  <ellipse cx="128" cy="54" rx="16" ry="6"/>
+  <ellipse cx="128" cy="51" rx="16" ry="6" stroke-opacity=".7"/>
+  <ellipse cx="128" cy="48" rx="16" ry="6" stroke-opacity=".5"/>
+  <path d="M144 48c10 0 8-16 20-16h6" />
+  <rect x="170" y="28" width="9" height="8" rx="1" fill="#eef2f8"/>
+  <!-- route arrow -->
+  <path d="M100 16h40" stroke-dasharray="3 4" stroke-opacity=".6"/>
+  <path d="M136 12l5 4-5 4" stroke-opacity=".6"/>
+</svg>

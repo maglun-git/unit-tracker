@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="360" viewBox="0 0 440 360" fill="none" stroke="#9aa6ba" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <defs>
+    <pattern id="mesh" width="14" height="14" patternUnits="userSpaceOnUse">
+      <path d="M0 0L14 14M14 0L0 14" stroke="#9aa6ba" stroke-opacity=".35" stroke-width="1"/>
+    </pattern>
+    <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd75e" stop-opacity=".45"/><stop offset="1" stop-color="#ffd75e" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="view" x1="1" y1="0" x2="0" y2="0">
+      <stop offset="0" stop-color="#7fa6e0" stop-opacity=".3"/><stop offset="1" stop-color="#7fa6e0" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <path d="M332 52L270 330H410z" fill="url(#beam)" stroke="none"/>
+  <path d="M232 128L60 120V250z" fill="url(#view)" stroke="none"/>
+  <!-- fence -->
+  <rect x="0" y="250" width="440" height="80" fill="url(#mesh)" stroke="none"/>
+  <path d="M0 250H440" />
+  <path d="M10 240V330M90 240V330M170 240V330M250 240V330M330 240V330M410 240V330" stroke-width="3"/>
+  <path d="M0 240Q7 234 14 240T28 240T42 240T56 240T70 240T84 240T98 240T112 240T126 240T140 240T154 240T168 240T182 240T196 240T210 240T224 240T238 240T252 240T266 240T280 240T294 240T308 240T322 240T336 240T350 240T364 240T378 240T392 240T406 240T420 240T434 240" stroke-opacity=".6" stroke-width="1.4"/>
+  <path d="M0 330H440" />
+  <!-- tall pole with lamp and camera -->
+  <path d="M300 330V40h36" stroke-width="3.2"/>
+  <path d="M318 40h30l-5 12h-20z" fill="#ffe9a8"/>
+  <path d="M300 112h-26v10" stroke-width="2.4"/>
+  <g transform="rotate(-8 240 128)">
+    <rect x="206" y="118" width="64" height="22" rx="5" fill="#eef2f8"/>
+    <path d="M198 112h80"/>
+    <circle cx="212" cy="129" r="5" fill="#9aa6ba" fill-opacity=".6"/>
+    <path d="M226 130h28" stroke-opacity=".5"/>
+  </g>
+  <circle cx="262" cy="125" r="2.4" fill="#5ec486" stroke="none"/>
+  <!-- cable down the pole to a junction box -->
+  <path d="M296 126V286" stroke-dasharray="3 5" stroke-opacity=".8"/>
+  <rect x="284" y="286" width="24" height="30" rx="3" fill="#eef2f8"/>
+  <path d="M290 296h12" stroke-opacity=".5"/>
+  <!-- laptop on the ground showing the view -->
+  <rect x="40" y="276" width="82" height="50" rx="4" fill="#eef2f8"/>
+  <path d="M30 330h102" stroke-width="3"/>
+  <path d="M50 316l18-20 12 10 14-12 18 22" stroke-opacity=".7"/>
+  <circle cx="104" cy="288" r="2" fill="#e05a4f" stroke="none"/>
+  <path d="M132 328C190 336 250 338 284 312" stroke-dasharray="3 5" stroke-opacity=".7"/>
+</svg>

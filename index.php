@@ -27,7 +27,7 @@ page_header('Overview', $user);
 
 <h2>Units out right now</h2>
 <?php if (!$out): ?>
-  <p class="muted">No units are out at the moment.</p>
+  <p class="muted empty">No units are out at the moment.</p>
 <?php else: ?>
 <table>
   <tr><th>Status</th><th>Unit</th><th>Holder</th><th>Purpose / customer</th><th>Due</th><th></th></tr>
