@@ -12,6 +12,9 @@ $statuses = ['available' => 'Available', 'in_repair' => 'In repair', 'retired' =
 // ---- Saving the form ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     check_csrf();
+    if (($_POST['action'] ?? '') === 'delete' && $id !== 'new') {
+        delete_unit((int)$id);
+    }
     if (($_POST['source'] ?? '') === 'photo') {
         save_units_from_photos();
     }
@@ -51,6 +54,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash('Could not save: that serial number is probably already registered.', 'err');
         redirect('units.php?id=' . urlencode($id));
     }
+}
+
+// Delete a unit for good (the red "Delete unit" button on the edit page).
+// A unit that is out on loan right now cannot be deleted: register it as
+// returned first. Its old, finished loans are deleted together with it
+// (and their reminder log rows, which the database removes by itself).
+function delete_unit(int $unitId): void
+{
+    $unit = q('SELECT * FROM units WHERE id = ?', [$unitId])->fetch();
+    if (!$unit) redirect('units.php');
+    $out = q('SELECT 1 FROM loans WHERE unit_id = ? AND returned_date IS NULL', [$unitId])->fetch();
+    if ($out) {
+        flash('This unit is out on loan right now. Register it as returned before deleting it.', 'err');
+        redirect('units.php?id=' . $unitId);
+    }
+    // Both steps happen together, or not at all.
+    db()->beginTransaction();
+    q('DELETE FROM loans WHERE unit_id = ?', [$unitId]);
+    q('DELETE FROM units WHERE id = ?', [$unitId]);
+    db()->commit();
+    flash('Deleted: ' . $unit['model'] . ', S/N ' . $unit['serial_number'] . '.');
+    redirect('units.php');
 }
 
 // Units read from one or more label photos (the "Upload SN label photo" button).
@@ -125,10 +150,28 @@ if ($id !== null) {
         </select>
       </label>
       <label>Notes <textarea name="notes" rows="3"><?= h($unit['notes']) ?></textarea></label>
-      <button>Save</button> <a href="units.php">Cancel</a>
+      <div class="form-actions">
+        <span><button>Save</button> <a href="units.php">Cancel</a></span>
+        <?php if ($id !== 'new'): ?>
+          <button type="submit" form="delete-unit" class="danger">Delete unit</button>
+        <?php endif; ?>
+      </div>
     </form>
     <?php
     if ($id !== 'new') {
+        // The delete button above belongs to this small separate form.
+        $loanCount = (int)q('SELECT COUNT(*) FROM loans WHERE unit_id = ?', [(int)$id])->fetchColumn();
+        $question = 'Delete ' . $unit['model'] . ' (S/N ' . $unit['serial_number'] . ') for good?';
+        if ($loanCount) {
+            $question .= "\n\nIts loan history (" . $loanCount . ($loanCount === 1 ? ' loan' : ' loans')
+                . ") will be deleted too. To keep the history, set the status to Retired instead.";
+        }
+        ?>
+        <form method="post" id="delete-unit" onsubmit="return confirm(<?= h(json_encode($question)) ?>)">
+          <?= csrf_field() ?>
+          <input type="hidden" name="action" value="delete">
+        </form>
+        <?php
         $history = q('SELECT l.*, s.name AS person_name FROM loans l
                       JOIN salespeople s ON s.id = l.salesperson_id
                       WHERE l.unit_id = ? ORDER BY l.start_date DESC', [(int)$id])->fetchAll();
