@@ -5,3 +5,33 @@
 Options -Indexes
 # The barcode reader (vendor/zxing) needs .wasm files sent with the right type.
 AddType application/wasm .wasm
+
+# ---------- Speed ----------
+# Pack text files smaller (gzip) before they are sent. Pictures and the
+# already packed eng.traineddata.gz are left as they are.
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/plain application/javascript text/javascript application/json image/svg+xml application/wasm
+</IfModule>
+
+# Let the browser keep pictures, styles and scripts instead of asking the
+# server for them again on every page. style.css and the scripts are linked
+# with "?v=<time of last change>", so a new version is fetched right after a
+# deploy anyway. Pictures are kept for a day, so a changed drawing shows up
+# by the next day at the latest. The pages themselves (.php) are never kept.
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css                 "access plus 1 year"
+  ExpiresByType application/javascript   "access plus 1 year"
+  ExpiresByType text/javascript          "access plus 1 year"
+  ExpiresByType application/wasm         "access plus 1 year"
+  ExpiresByType image/svg+xml            "access plus 1 day"
+  ExpiresByType image/png                "access plus 1 day"
+  ExpiresByType image/jpeg               "access plus 1 day"
+  ExpiresByType image/x-icon             "access plus 1 day"
+</IfModule>
+# The text-recognition language file (vendor/tesseract/lang, 3 MB) never changes.
+<IfModule mod_headers.c>
+  <FilesMatch "\.traineddata\.gz$">
+    Header set Cache-Control "public, max-age=31536000"
+  </FilesMatch>
+</IfModule>

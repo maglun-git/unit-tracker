@@ -10,9 +10,14 @@
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception as MailException;
 
-require_once __DIR__ . '/PHPMailer/Exception.php';
-require_once __DIR__ . '/PHPMailer/PHPMailer.php';
-require_once __DIR__ . '/PHPMailer/SMTP.php';
+// Speed: the PHPMailer library is big, so it is only loaded when an email
+// is actually sent (see load_phpmailer() below), not on every page.
+function load_phpmailer(): void
+{
+    require_once __DIR__ . '/PHPMailer/Exception.php';
+    require_once __DIR__ . '/PHPMailer/PHPMailer.php';
+    require_once __DIR__ . '/PHPMailer/SMTP.php';
+}
 
 // The reason the last email failed ('' if it worked).
 function mail_error(?string $set = null): string
@@ -44,6 +49,7 @@ function send_email(string $to, string $subject, string $body, array $cc = [], ?
         return graph_send($to, $subject, $body, $cc, $debug, $html);
     }
 
+    load_phpmailer();
     $mail = new PHPMailer(true); // true = report problems as errors we can catch
     try {
         if (config('mail_method') === 'smtp') {

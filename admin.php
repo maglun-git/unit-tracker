@@ -145,8 +145,13 @@ if (config('mail_method') === 'smtp' && config('smtp_user') && strcasecmp((strin
 
 // Spam-protection records for the From domain, looked up from the web host.
 // SPF and DKIM let other mail servers check that our emails are genuine.
+// Speed: asking DNS takes a moment, so the answer is remembered for
+// 10 minutes (per logged-in person) instead of asked on every visit.
 $dnsChecks = [];
-if ($fromDomain && function_exists('dns_get_record')) {
+$dnsCache = $_SESSION['dns_checks'] ?? null;
+if ($dnsCache && $dnsCache['domain'] === $fromDomain && $dnsCache['time'] > time() - 600) {
+    $dnsChecks = $dnsCache['checks'];
+} elseif ($fromDomain && function_exists('dns_get_record')) {
     $txt = function (string $name): array {
         $records = @dns_get_record($name, DNS_TXT) ?: [];
         return array_map(fn($r) => $r['txt'] ?? implode('', $r['entries'] ?? []), $records);
@@ -162,6 +167,7 @@ if ($fromDomain && function_exists('dns_get_record')) {
         'DKIM'               => $dkim ? 'found (selector x)' : null,
         'DMARC'              => $dmarc[0] ?? null,
     ];
+    $_SESSION['dns_checks'] = ['domain' => $fromDomain, 'time' => time(), 'checks' => $dnsChecks];
 }
 
 page_header('Admin', $user);

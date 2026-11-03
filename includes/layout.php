@@ -7,7 +7,15 @@ function page_header(string $title, ?array $user = null): void
     echo "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">";
     echo '<meta name="viewport" content="width=device-width, initial-scale=1">';
     echo '<title>' . h($title) . " · $site</title>";
-    echo '<link rel="stylesheet" href="style.css"></head>';
+    // "?v=..." changes when style.css changes, so browsers may keep the file
+    // (see .htaccess) and still get the new one right after a deploy.
+    echo '<link rel="stylesheet" href="style.css?v=' . @filemtime(__DIR__ . '/../style.css') . '">';
+    // Speed: when the mouse rests on a link to another page, Chrome and Edge
+    // start loading that page already, so it opens almost at once on click.
+    // Log out (and the cron/reset links) are never loaded early.
+    echo '<script type="speculationrules">{"prefetch":[{"where":{"and":[{"href_matches":"/*"},'
+        . '{"not":{"href_matches":"*logout.php*"}},{"not":{"href_matches":"*cron.php*"}},{"not":{"href_matches":"*reset.php*"}}]},'
+        . '"eagerness":"moderate"}]}</script></head>';
     $page = basename($_SERVER['SCRIPT_NAME'] ?? '', '.php');
     echo '<body class="page-' . h($page) . ($user ? '' : ' auth') . '">';
     // Small camera icon in front of the site name.
