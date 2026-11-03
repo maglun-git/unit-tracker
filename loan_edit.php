@@ -102,6 +102,7 @@ if (!$id) {
                 AND NOT EXISTS (SELECT 1 FROM loans l WHERE l.unit_id = u.id AND l.returned_date IS NULL)
                 ORDER BY u.model, u.serial_number")->fetchAll();
     $people = q('SELECT * FROM salespeople WHERE active = 1 ORDER BY name')->fetchAll();
+    $preselect = (int)($_GET['unit'] ?? 0); // from the "In stock" list on the Overview
     $defaultDue = date('Y-m-d', strtotime('+' . (int)config('default_loan_days', 30) . ' days'));
 
     page_header('Send out a unit', $user);
@@ -114,7 +115,7 @@ if (!$id) {
         <select name="unit_id" required>
           <option value="">Choose…</option>
           <?php foreach ($units as $u): ?>
-            <option value="<?= $u['id'] ?>"><?= h($u['model'] . ' · ' . $u['serial_number']) ?></option>
+            <option value="<?= $u['id'] ?>"<?= $u['id'] == $preselect ? ' selected' : '' ?>><?= h($u['model'] . ' · ' . $u['serial_number']) ?></option>
           <?php endforeach; ?>
         </select>
       </label>

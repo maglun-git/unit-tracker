@@ -43,6 +43,17 @@ form.inline { display: inline; }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .stat { background: #fff; border-radius: 8px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(0,0,0,.06); color: #4a5468; }
 .stat b { display: block; font-size: 28px; color: #1d2433; }
+/* Overview: main column + "In stock" box lined up under the last stat card */
+.overview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; align-items: start; }
+.overview-main { grid-column: 1 / 4; min-width: 0; }
+.overview-main > p:first-child { margin-top: 0; }
+.in-stock { margin: 0; padding: 14px 16px; }
+.in-stock h2 { font-size: 15px; margin-bottom: 6px; }
+.in-stock ul { list-style: none; margin: 0; padding: 0; max-height: 420px; overflow-y: auto; }
+.in-stock li + li { border-top: 1px solid #eef0f4; }
+.in-stock a { display: block; padding: 6px 0; text-decoration: none; }
+.in-stock a:hover { text-decoration: underline; }
+@media (max-width: 700px) { .overview { grid-template-columns: 1fr; } .overview-main { grid-column: auto; } }
 .stat.red b { color: #b0281a; } .stat.orange b { color: #a35a00; } .stat.green b { color: #1e7b3a; }
 .tabs a { margin-right: 12px; text-decoration: none; padding-bottom: 2px; }
 .tabs a.active { font-weight: 700; border-bottom: 2px solid #1a5fd0; }

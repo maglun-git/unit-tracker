@@ -12,8 +12,11 @@ $out = q('SELECT l.*, u.model, u.serial_number, s.name AS person_name
 
 $overdue = count(array_filter($out, fn($l) => days_until($l['due_date']) < 0));
 $soon = count(array_filter($out, fn($l) => ($d = days_until($l['due_date'])) >= 0 && $d <= 7));
-$available = q("SELECT COUNT(*) FROM units u WHERE u.status = 'available'
-                AND NOT EXISTS (SELECT 1 FROM loans l WHERE l.unit_id = u.id AND l.returned_date IS NULL)")->fetchColumn();
+// Units in stock: available and not out on an open loan.
+$inStock = q("SELECT u.id, u.model FROM units u WHERE u.status = 'available'
+              AND NOT EXISTS (SELECT 1 FROM loans l WHERE l.unit_id = u.id AND l.returned_date IS NULL)
+              ORDER BY u.model, u.serial_number")->fetchAll();
+$available = count($inStock);
 
 page_header('Overview', $user);
 ?>
@@ -23,6 +26,8 @@ page_header('Overview', $user);
   <div class="stat orange"><b><?= $soon ?></b>due within 7 days</div>
   <div class="stat green"><b><?= (int)$available ?></b>available in stock</div>
 </div>
+<div class="overview">
+<div class="overview-main">
 <p><a class="button" href="loan_edit.php">+ Send out a unit</a></p>
 
 <h2>Units out right now</h2>
@@ -42,5 +47,19 @@ page_header('Overview', $user);
   </tr>
   <?php endforeach; ?>
 </table>
-<?php endif;
-page_footer();
+<?php endif; ?>
+</div>
+<aside class="card in-stock">
+  <h2>In stock</h2>
+  <?php if (!$inStock): ?>
+    <p class="muted">No units in stock.</p>
+  <?php else: ?>
+  <ul>
+    <?php foreach ($inStock as $u): ?>
+    <li><a href="loan_edit.php?unit=<?= (int)$u['id'] ?>" title="Send out this unit"><?= h($u['model']) ?></a></li>
+    <?php endforeach; ?>
+  </ul>
+  <?php endif; ?>
+</aside>
+</div>
+<?php page_footer();
