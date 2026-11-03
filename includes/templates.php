@@ -13,10 +13,28 @@
 function common_placeholders(): array
 {
     return [
-        'site_name'   => 'Name of the tracker (site_name in config.php)',
-        'site_url'    => 'Web address of the tracker',
-        'sender_name' => 'Sender name (mail_from_name in config.php)',
+        'site_name'   => 'Name of this tracker website' . now_is(config('site_name')),
+        'site_url'    => 'Web address of this tracker website' . now_is(config('base_url')),
+        'sender_name' => 'Name shown as the sender of the email' . now_is(config('mail_from_name')),
     ];
+}
+
+// Adds the current value in plain text, e.g. ' (now: "Unit Tracker")'.
+function now_is($value): string
+{
+    $value = trim((string)$value);
+    return $value === '' ? '' : ' (now: "' . $value . '")';
+}
+
+// The reminder days as readable text, e.g. "7 days and 1 day".
+function reminder_days_text(): string
+{
+    $parts = [];
+    foreach ((array)config('reminder_days_before', [7, 1]) as $d) {
+        $d = (int)$d;
+        $parts[] = $d . ($d === 1 ? ' day' : ' days');
+    }
+    return $parts ? implode(' and ', $parts) : 'a few days';
 }
 
 // Placeholders for the emails about a loan.
@@ -59,7 +77,7 @@ function default_templates(): array
         ],
         'reminder_before' => [
             'name'    => 'Reminder before due date',
-            'about'   => 'Sent some days before the due date (reminder_days_before in config.php, e.g. 7 and 1 days), and by the "Send reminder now" buttons.',
+            'about'   => 'Sent ' . reminder_days_text() . ' before the due date, and when someone clicks a "Send reminder now" button.',
             'vars'    => loan_placeholders(),
             'subject' => 'Reminder: {{unit}} is due back in {{days_left_text}}',
             'body'    => "<p>Hi {{first_name}},</p>\n\n"
@@ -75,7 +93,7 @@ function default_templates(): array
         ],
         'reminder_overdue' => [
             'name'    => 'Overdue',
-            'about'   => 'Sent the day after the due date, then again every few days (overdue_repeat_days in config.php) until the unit is returned.',
+            'about'   => 'Sent the day after the due date, then again every ' . max(1, (int)config('overdue_repeat_days', 7)) . ' days until the unit is returned.',
             'vars'    => loan_placeholders(),
             'subject' => 'OVERDUE: {{unit}} was due {{due_date}}',
             'body'    => "<p>Hi {{first_name}},</p>\n\n"
