@@ -1,6 +1,6 @@
 # Plan: scan product labels live with the phone camera
 
-Status: plan only, nothing built yet (written 2026-11-11).
+Status: steps 1 to 4 built on 2026-11-11 (iPhone first, text reading as well as barcode). Steps 5 and 6 not started.
 
 ## The short version
 

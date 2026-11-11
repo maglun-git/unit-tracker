@@ -193,3 +193,38 @@ tr.just-added td { background: #fff8d6; animation: just-added 3s ease-out 1s for
 
 /* Save/Cancel on the left, a red Delete button on the right (edit unit page). */
 .form-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* "Scan labels" page (scan.php): live camera, made for phones */
+.live-scan { max-width: 640px; }
+.live-big { width: 100%; padding: 14px 16px; font-size: 17px; }
+.live-intro p:first-child { margin-top: 0; }
+.live-view { position: relative; height: min(68vh, 560px); margin: 0 0 12px; background: #000; border-radius: 10px; overflow: hidden; }
+.live-view video, .live-view canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* The frame to aim at: label-shaped, the rest of the picture a bit darker. */
+.live-aim { position: absolute; left: 7%; right: 7%; top: 18%; aspect-ratio: 1.6; border: 3px solid rgba(255,255,255,.9); border-radius: 10px; box-shadow: 0 0 0 100vmax rgba(0,0,0,.35); transition: border-color .2s; }
+.live-aim.half { border-color: #f5b041; }
+.live-aim.known { border-color: #8fa3c7; border-style: dashed; }
+.live-aim.done { border-color: #5ee08a; }
+.live-aim.busy { border-color: #5ea8ff; animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .4; } }
+.live-hud { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 14px; background: rgba(15,20,30,.75); color: #fff; font-size: 15px; font-weight: 600; line-height: 1.35; min-height: 3.4em; }
+.live-tools { position: absolute; top: 10px; right: 10px; left: 10px; display: flex; justify-content: flex-end; gap: 8px; }
+.live-tool { padding: 8px 12px; font-size: 14px; background: rgba(15,20,30,.6); border: 1px solid rgba(255,255,255,.35); }
+.live-tool:hover { background: rgba(15,20,30,.85); }
+.live-tool.on { background: #f5b041; color: #1d2433; }
+.live-tool:disabled { opacity: .5; }
+.live-result input { font-size: 17px; } /* 16px or more: iPhone does not zoom in when typing */
+.live-result-status { margin-top: 0; font-weight: 700; }
+.live-result-status.ok { color: #1e7b3a; }
+.live-result-status.warn { color: #a35a00; }
+.live-warn { padding: 8px 12px; border-radius: 6px; background: #fadbd8; color: #b0281a; font-weight: 600; }
+.live-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 0; }
+.live-added ul { margin: 0; padding-left: 20px; }
+.live-added li { padding: 3px 0; }
+.page-scan .title-art { display: none; }
+@media (max-width: 560px) {
+  .page-scan h1 { margin: 12px 0 10px; font-size: 20px; }
+  .live-view { margin-left: -16px; margin-right: -16px; border-radius: 0; height: 56vh; }
+}
+/* Units page: the scan button, most useful on phones */
+.scan-button { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; }

@@ -220,6 +220,10 @@ page_header('Units', $user);
   </label>
   <input type="file" id="label-photo" accept="image/*" multiple hidden>
   <span class="muted drop-hint">or drag label photos onto this page</span>
+  <a class="button scan-button" href="scan.php">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/></svg>
+    Scan labels with camera
+  </a>
 </p>
 
 <!-- Shown while label photos are read: one row per photo, to check before saving if needed. -->
@@ -269,5 +273,6 @@ foreach (q('SELECT part_number, model FROM units WHERE part_number IS NOT NULL O
 <?php // "defer": the list shows first, the photo-reading scripts load right after (same order). ?>
 <script defer src="vendor/tesseract/tesseract.min.js?v=<?= filemtime(__DIR__ . '/vendor/tesseract/tesseract.min.js') ?>"></script>
 <script defer src="vendor/zxing/zxing-reader.js?v=<?= filemtime(__DIR__ . '/vendor/zxing/zxing-reader.js') ?>"></script>
+<script defer src="js/label-reader.js?v=<?= filemtime(__DIR__ . '/js/label-reader.js') ?>"></script>
 <script defer src="js/label-scan.js?v=<?= filemtime(__DIR__ . '/js/label-scan.js') ?>"></script>
 <?php page_footer();

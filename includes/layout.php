@@ -33,6 +33,7 @@ function page_header(string $title, ?array $user = null): void
             . '<a href="loans.php">Loans</a>'
             . (!empty($user['is_admin']) ? '<a href="emails.php">E-mail</a>' : '')
             . '<a href="units.php">Units</a>'
+            . '<a href="scan.php" title="Add units by scanning labels with the camera">Scan</a>'
             . '<a href="people.php">Salespeople</a>'
             . '<a href="users.php">Team</a>'
             . (!empty($user['is_admin']) ? '<a href="admin.php">Admin</a>' : '')

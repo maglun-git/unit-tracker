@@ -16,6 +16,13 @@ and POC cameras you lend to salespeople, and emails reminders automatically.
   already registered is refused. You can pick several photos at once, or drag
   photos onto the Units page: each photo becomes its own unit. Everything runs
   in the browser, so the web host needs nothing extra.
+- **Scan labels** (menu "Scan", made for phones, iPhone first): opens the
+  phone's camera inside the page. Point it at the label and hold still: the
+  page reads the model and the serial number from the printed text (OCR), and
+  from the square barcode when there is one. When two readings agree it beeps
+  and shows the result; check it and press **Add unit**, then go on to the next
+  label. **Read now** reads the current picture more thoroughly. Needs the site
+  to be opened with `https://`.
 - **Salespeople**: the people you send units to. They do not log in; they just
   get emails.
 - **Loans**: "send out a unit" to a salesperson with a due date. Change the due
@@ -62,7 +69,10 @@ and POC cameras you lend to salespeople, and emails reminders automatically.
 | `users.php` | List of team logins and changing your own password. |
 | `cron.php` | The reminder script your host runs once a day. |
 | `includes/` | Shared code: database connection, email sending, email templates (`templates.php`, with the standard texts), reminder rules, page layout. |
-| `js/label-scan.js` | Reads the label photo on the Units page. |
+| `scan.php` | "Scan labels": add units with the live phone camera. |
+| `js/label-reader.js` | Reads model, S/N and P/N from a label picture (shared by the two below). |
+| `js/label-scan.js` | "Upload SN label photo" on the Units page. |
+| `js/live-scan.js` | The live camera on the Scan labels page. |
 | `vendor/` | Ready-made libraries used by the label reader: Tesseract.js 6.0.1 (text reading, with English language data) and zxing-wasm 2.2.4 (barcode reading). Copied from npm, Apache 2.0 / MIT licences inside. |
 | `style.css` | The look of the pages. |
 | `.htaccess` | Stops browsers from opening `config.php` and other private files. |
