@@ -1,6 +1,6 @@
 # Plan: scan product labels live with the phone camera
 
-Status: steps 1 to 4 built on 2026-11-11 (iPhone first, text reading as well as barcode). Steps 5 and 6 not started.
+Status: steps 1 to 4 built on 2026-11-11, camera choice, zoom and focus controls added 2026-11-12 (iPhone first, text reading as well as barcode). Steps 5 and 6 not started.
 
 ## The short version
 

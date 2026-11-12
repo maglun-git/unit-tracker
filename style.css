@@ -228,3 +228,11 @@ tr.just-added td { background: #fff8d6; animation: just-added 3s ease-out 1s for
 }
 /* Units page: the scan button, most useful on phones */
 .scan-button { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; }
+/* Scan page: on-screen zoom (when the phone's own zoom is not available) */
+.live-view video, .live-view canvas { transform: scale(var(--zoom, 1)); transform-origin: center; touch-action: none; }
+.live-controls label { margin-bottom: 10px; }
+.live-controls input[type=range] { padding: 0; border: 0; height: 32px; }
+.live-controls select { font-size: 16px; }
+.live-val { font-weight: normal; color: #6b7385; margin-left: 6px; }
+.live-tip { margin: 4px 0 0; font-size: 13px; }
+#live-focus-wrap { margin-bottom: 10px; }

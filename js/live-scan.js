@@ -52,6 +52,11 @@
   async function start() {
     errorBox.hidden = true;
     unlockSound();
+    await openCamera(saved('camera'));
+  }
+
+  // Opens the camera: the one chosen in the list (deviceId), or else the back camera.
+  async function openCamera(deviceId) {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       return showError(location.protocol !== 'https:'
         ? 'The camera only works when the page is opened with https:// in the address.'
@@ -60,11 +65,21 @@
     R.warmUp(); // starts loading the readers while the camera opens
     $('live-start').disabled = true;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: {
-        facingMode: { ideal: 'environment' },
+      var want = {
         // As sharp as the phone allows: small print needs many pixels.
         width: { ideal: 3840 }, height: { ideal: 2160 }
-      } });
+      };
+      if (deviceId) want.deviceId = { exact: deviceId };
+      else want.facingMode = { ideal: 'environment' };
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: want });
+      } catch (e) {
+        // The saved camera is gone (other phone, or it was unplugged): use the back camera.
+        if (!deviceId || e.name === 'NotAllowedError') throw e;
+        remember('camera', '');
+        delete want.deviceId; want.facingMode = { ideal: 'environment' };
+        stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: want });
+      }
     } catch (err) {
       $('live-start').disabled = false;
       return showError(err && err.name === 'NotAllowedError'
@@ -80,6 +95,10 @@
     var caps = track.getCapabilities ? track.getCapabilities() : {};
     $('live-torch').hidden = !caps.torch;
     video.srcObject = stream;
+    await fillCameraList();
+    setupZoom(caps);
+    setupFocus(caps);
+    $('live-controls').hidden = false;
     try { await video.play(); } catch (e) { /* autoplay with muted+playsinline works on iPhone */ }
     intro.hidden = true;
     view.hidden = false;
@@ -96,10 +115,128 @@
 
   function stop() {
     scanning = false;
+    $('live-controls').hidden = true;
     if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
     stream = null; track = null; torchOn = false;
     $('live-torch').classList.remove('on');
   }
+
+  // ---------- Camera controls ----------
+  // Settings are remembered on this phone (camera, zoom per camera).
+  function saved(key) { try { return localStorage.getItem('scan-' + key) || ''; } catch (e) { return ''; } }
+  function remember(key, value) { try { localStorage.setItem('scan-' + key, value); } catch (e) { /* private mode */ } }
+
+  var cameraSelect = $('live-camera');
+  // The list of back cameras. iPhones give each lens its own name ("Back Camera",
+  // "Back Ultra Wide Camera", "Back Dual Wide Camera", ...). Names are known only
+  // after the camera has been allowed, so the list is filled after it starts.
+  async function fillCameraList() {
+    var devices = [];
+    try { devices = await navigator.mediaDevices.enumerateDevices(); } catch (e) { /* no list */ }
+    var cams = devices.filter(function (d) { return d.kind === 'videoinput' && !/front|user|facetime/i.test(d.label); });
+    var current = track.getSettings ? track.getSettings().deviceId : '';
+    cameraSelect.innerHTML = '';
+    cams.forEach(function (d, i) {
+      var o = document.createElement('option');
+      o.value = d.deviceId;
+      o.textContent = d.label || 'Camera ' + (i + 1);
+      if (d.deviceId === current) o.selected = true;
+      cameraSelect.appendChild(o);
+    });
+    $('live-camera-wrap').hidden = cams.length < 2;
+    $('live-tip-iphone').hidden = !cams.some(function (d) { return /dual wide|triple|ultra wide/i.test(d.label); });
+  }
+  cameraSelect.addEventListener('change', async function () {
+    remember('camera', cameraSelect.value);
+    var wasResult = !result.hidden;
+    stop();
+    await openCamera(cameraSelect.value);
+    if (wasResult) hideResult();
+  });
+
+  // Zoom: the phone's own zoom where the browser allows it (sharper), otherwise the
+  // picture is enlarged on screen and the frame area is cut out of the full-size picture
+  // (works on every phone; the camera picture is large, so the text keeps enough pixels).
+  var zoom = $('live-zoom'), hwZoom = false, digitalZoom = 1;
+  function setupZoom(caps) {
+    hwZoom = !!(caps.zoom && caps.zoom.max > caps.zoom.min);
+    var min = hwZoom ? caps.zoom.min : 1;
+    var max = hwZoom ? Math.min(caps.zoom.max, 10) : 4;
+    zoom.min = min; zoom.max = max;
+    zoom.step = hwZoom && caps.zoom.step ? Math.max(caps.zoom.step, 0.05) : 0.1;
+    // Start zoomed in a little (2x where possible): labels are small, and phones
+    // cannot focus very close, so it is better to hold the phone a bit away and zoom.
+    var key = 'zoom-' + (track.getSettings().deviceId || 'default');
+    var start = parseFloat(saved(key)) || Math.min(max, Math.max(min, 2));
+    zoom.dataset.key = key;
+    zoom.value = start;
+    applyZoom(start);
+  }
+  async function applyZoom(z) {
+    z = Math.min(parseFloat(zoom.max), Math.max(parseFloat(zoom.min), z));
+    zoom.value = z;
+    $('live-zoom-val').textContent = (Math.round(z * 10) / 10) + 'x';
+    if (hwZoom) {
+      try { await track.applyConstraints({ advanced: [{ zoom: z }] }); } catch (e) { /* ignore */ }
+      digitalZoom = 1;
+    } else {
+      digitalZoom = z;
+    }
+    view.style.setProperty('--zoom', digitalZoom);
+  }
+  zoom.addEventListener('input', function () { applyZoom(parseFloat(zoom.value)); });
+  zoom.addEventListener('change', function () { remember(zoom.dataset.key, zoom.value); });
+
+  // Pinch on the picture with two fingers to zoom, like in the camera app.
+  var pinch = null;
+  view.addEventListener('touchstart', function (e) {
+    if (e.touches.length === 2) {
+      pinch = { d: touchDistance(e), z: parseFloat(zoom.value) };
+      e.preventDefault();
+    }
+  }, { passive: false });
+  view.addEventListener('touchmove', function (e) {
+    if (pinch && e.touches.length === 2) {
+      e.preventDefault();
+      applyZoom(pinch.z * touchDistance(e) / pinch.d);
+    }
+  }, { passive: false });
+  view.addEventListener('touchend', function (e) {
+    if (pinch && e.touches.length < 2) { remember(zoom.dataset.key, zoom.value); pinch = null; }
+  });
+  function touchDistance(e) {
+    return Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+  }
+
+  // Focus by hand: only where the browser allows it (mostly Android phones; iPhones
+  // focus by themselves). "Auto focus" goes back to the camera's own focusing.
+  var focus = $('live-focus');
+  function setupFocus(caps) {
+    var ok = !!(caps.focusDistance && caps.focusDistance.max > caps.focusDistance.min &&
+                caps.focusMode && caps.focusMode.indexOf('manual') !== -1);
+    $('live-focus-wrap').hidden = !ok;
+    if (!ok) return;
+    focus.min = caps.focusDistance.min; focus.max = caps.focusDistance.max;
+    focus.step = caps.focusDistance.step || 0.01;
+    focus.value = track.getSettings().focusDistance || caps.focusDistance.min;
+    $('live-focus-val').textContent = 'auto';
+  }
+  focus.addEventListener('input', async function () {
+    $('live-focus-val').textContent = 'near ' + Math.round(parseFloat(focus.value) * 100) + ' cm';
+    try { await track.applyConstraints({ advanced: [{ focusMode: 'manual', focusDistance: parseFloat(focus.value) }] }); } catch (e) { /* ignore */ }
+  });
+  $('live-autofocus').addEventListener('click', async function () {
+    $('live-focus-val').textContent = 'auto';
+    try { await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (e) { /* ignore */ }
+  });
+
+  // Tap the picture to focus on that spot, where the phone allows it.
+  view.addEventListener('click', async function (e) {
+    if (!track || e.target.closest('button')) return;
+    var b = view.getBoundingClientRect();
+    var point = { x: (e.clientX - b.left) / b.width, y: (e.clientY - b.top) / b.height };
+    try { await track.applyConstraints({ advanced: [{ pointsOfInterest: [point], focusMode: 'single-shot' }] }); } catch (err) { /* not supported */ }
+  });
 
   function showIntro() { view.hidden = true; intro.hidden = false; hideResult(); }
 
@@ -140,7 +277,8 @@
     var vw = src.videoWidth || src.width, vh = src.videoHeight || src.height;
     if (!vw || !vh) return null;
     var box = view.getBoundingClientRect(), a = aim.getBoundingClientRect();
-    var scale = Math.max(box.width / vw, box.height / vh);
+    // The picture fills the screen (cropped), and is enlarged by the on-screen zoom.
+    var scale = Math.max(box.width / vw, box.height / vh) * digitalZoom;
     var offX = (box.width - vw * scale) / 2, offY = (box.height - vh * scale) / 2;
     // A little extra around the frame, in case the label sticks out a bit.
     var pad = 0.06 * a.width;

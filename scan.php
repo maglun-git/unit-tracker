@@ -83,6 +83,28 @@ page_header('Scan labels', $user);
     </div>
   </div>
 
+  <!-- Camera controls: which camera, zoom and (where the phone allows it) focus.
+       Pinching on the picture zooms too. Only the controls the phone supports are shown. -->
+  <div class="card live-controls" id="live-controls" hidden>
+    <label id="live-camera-wrap" hidden>Camera
+      <select id="live-camera"></select>
+    </label>
+    <label>Zoom <span class="live-val" id="live-zoom-val"></span>
+      <input type="range" id="live-zoom" min="1" max="4" step="0.1" value="1">
+    </label>
+    <div id="live-focus-wrap" hidden>
+      <label>Focus <span class="live-val" id="live-focus-val"></span>
+        <input type="range" id="live-focus">
+      </label>
+      <button type="button" class="secondary" id="live-autofocus">Auto focus</button>
+    </div>
+    <p class="muted live-tip" id="live-tip">Label blurry? Phones cannot focus closer than about 10 to 20 cm.
+      Hold the phone a bit further away and zoom in instead, so the label fills the frame.
+      <span id="live-tip-iphone" hidden>On iPhone Pro models, try another camera in the list
+      (a "Dual Wide" or "Triple" camera switches to close-up mode by itself).</span>
+      Tap the picture to focus there, where the phone allows it.</p>
+  </div>
+
   <!-- What was read: check it, then add the unit. -->
   <form class="card live-result" id="live-result" hidden autocomplete="off">
     <p class="live-result-status" id="live-result-status"></p>
